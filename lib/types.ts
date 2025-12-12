@@ -11,3 +11,20 @@ export interface Email {
   response: string;
   classification?: Classification;
 }
+
+export interface Draft {
+  id: string;
+  emailId: string;
+  inquiry: string;
+  generatedDraft: string;
+  finalResponse?: string;
+  isApproved: boolean;
+  createdAt: unknown;
+}
+
+export interface PolicyHistory {
+  id: string;
+  content: string;
+  version: number;
+  createdAt: unknown;
+}

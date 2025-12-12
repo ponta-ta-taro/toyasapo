@@ -17,6 +17,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { saveDraft, savePolicy, toggleDraftApproval, getApprovedDrafts } from "@/lib/db"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 
 const DEFAULT_POLICY = `あなたは「とやのメンタルクリニック」のメール返信アシスタントです。
 以下のポリシーに従って、問い合わせへの返信を作成してください。
@@ -59,6 +62,16 @@ export function Dashboard() {
     const [filterCategory, setFilterCategory] = useState<string | null>(null)
     const [isSortingByPriority, setIsSortingByPriority] = useState(false)
 
+    // Firebase / Approval State
+    const [isApprovedForTraining, setIsApprovedForTraining] = useState(false)
+    const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
+
+    // Reset approval state when switching emails
+    useEffect(() => {
+        setIsApprovedForTraining(false)
+        setCurrentDraftId(null)
+    }, [selectedEmailId])
+
     // Load policy from localStorage on mount
     useEffect(() => {
         const savedPolicy = localStorage.getItem("response_policy")
@@ -92,7 +105,7 @@ export function Dashboard() {
         } catch (e) {
             console.error("Failed to load cached classifications", e);
         }
-    }, [emails.length]); // Dependency on length mostly sufficient for initial load
+    }, [emails]);
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
@@ -204,9 +217,14 @@ export function Dashboard() {
         if (!selectedEmail) return;
 
         setIsGenerating(true);
-        setGeneratedDraft(""); // Reset previous draft
+        setGeneratedDraft("");
+        setCurrentDraftId(null);
+        setIsApprovedForTraining(false);
 
         try {
+            // Fetch past approved responses for few-shot learning
+            const pastResponses = await getApprovedDrafts(3);
+
             const res = await fetch("/api/generate", {
                 method: "POST",
                 headers: {
@@ -214,7 +232,8 @@ export function Dashboard() {
                 },
                 body: JSON.stringify({
                     inquiry: selectedEmail.inquiry,
-                    policy: policy
+                    policy: policy,
+                    pastResponses
                 }),
             });
 
@@ -224,6 +243,18 @@ export function Dashboard() {
 
             const data = await res.json();
             setGeneratedDraft(data.draft);
+
+            // Save draft to Firestore automatically
+            if (data.draft) {
+                const draftId = await saveDraft({
+                    emailId: generateEmailHash(selectedEmail.datetime, selectedEmail.inquiry), // Use hash as ID surrogate
+                    inquiry: selectedEmail.inquiry,
+                    generatedDraft: data.draft,
+                    isApproved: false
+                });
+                if (draftId) setCurrentDraftId(draftId);
+            }
+
             toast.success("返信下書きを生成しました");
         } catch (error) {
             console.error(error);
@@ -239,8 +270,22 @@ export function Dashboard() {
         toast.success("クリップボードにコピーしました");
     };
 
-    const handleSavePolicy = () => {
+    const handleApprovalChange = async (checked: boolean) => {
+        setIsApprovedForTraining(checked);
+        if (currentDraftId) {
+            await toggleDraftApproval(currentDraftId, checked);
+            if (checked) {
+                toast.success("学習データとして承認しました");
+            }
+        }
+    };
+
+    const handleSavePolicy = async () => {
         localStorage.setItem("response_policy", policy)
+
+        // Also save to Firestore
+        await savePolicy(policy);
+
         toast.success("ポリシーを保存しました")
         setIsPolicyModalOpen(false)
     }
@@ -507,6 +552,26 @@ export function Dashboard() {
                                     コピー
                                 </Button>
                             </Card>
+                            {/* Approval Checkbox */}
+                            <div className="mt-4 flex items-center space-x-2">
+                                <Checkbox
+                                    id="training-approval"
+                                    checked={isApprovedForTraining}
+                                    onCheckedChange={handleApprovalChange}
+                                    disabled={!generatedDraft}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                    <Label
+                                        htmlFor="training-approval"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        この返信を学習に使う
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        チェックすると、今後のAI生成の参考になります
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : (

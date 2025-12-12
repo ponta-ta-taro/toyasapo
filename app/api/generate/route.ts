@@ -1,5 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { Draft } from "@/lib/types";
 
 const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
@@ -7,7 +8,7 @@ const anthropic = new Anthropic({
 
 export async function POST(req: Request) {
     try {
-        const { inquiry, policy } = await req.json();
+        const { inquiry, policy, pastResponses } = await req.json();
 
         if (!inquiry) {
             return NextResponse.json(
@@ -16,11 +17,7 @@ export async function POST(req: Request) {
             );
         }
 
-        const msg = await anthropic.messages.create({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 1000,
-            temperature: 0.7,
-            system: policy || `あなたは心療内科「とやさぽ」の受付・相談スタッフです。
+        let systemPrompt = policy || `あなたは心療内科「とやさぽ」の受付・相談スタッフです。
 患者様やそのご家族からの問い合わせに対して、共感的かつ専門的な返信メールの下書きを作成してください。
 
 【指針】
@@ -31,7 +28,21 @@ export async function POST(req: Request) {
 - 署名は含めないでください（本文のみ作成）。
 
 【入力】
-問い合わせ内容を提供します。`,
+問い合わせ内容を提供します。`;
+
+        // Append Few-Shot examples if available
+        if (pastResponses && Array.isArray(pastResponses) && pastResponses.length > 0) {
+            systemPrompt += `\n\n【過去の返信事例（参考）】\n以下の事例の書き方やトーンを参考にしてください。\n`;
+            pastResponses.forEach((draft: Draft, index: number) => {
+                systemPrompt += `\n事例${index + 1}:\n問い合わせ: ${draft.inquiry}\n返信: ${draft.generatedDraft || draft.finalResponse}\n`;
+            });
+        }
+
+        const msg = await anthropic.messages.create({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            temperature: 0.7,
+            system: systemPrompt,
             messages: [
                 {
                     role: "user",
