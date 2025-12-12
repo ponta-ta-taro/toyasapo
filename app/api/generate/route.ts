@@ -7,7 +7,7 @@ const anthropic = new Anthropic({
 
 export async function POST(req: Request) {
     try {
-        const { inquiry } = await req.json();
+        const { inquiry, policy } = await req.json();
 
         if (!inquiry) {
             return NextResponse.json(
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
             model: "claude-sonnet-4-20250514",
             max_tokens: 1000,
             temperature: 0.7,
-            system: `あなたは心療内科「とやさぽ」の受付・相談スタッフです。
+            system: policy || `あなたは心療内科「とやさぽ」の受付・相談スタッフです。
 患者様やそのご家族からの問い合わせに対して、共感的かつ専門的な返信メールの下書きを作成してください。
 
 【指針】

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Email } from "@/lib/types"
 import Papa from "papaparse"
 import { toast } from "sonner"
@@ -8,8 +8,27 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2 } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+const DEFAULT_POLICY = `あなたは「とやのメンタルクリニック」のメール返信アシスタントです。
+以下のポリシーに従って、問い合わせへの返信を作成してください。
+【返信ポリシー】
+
+メールで診断や治療方針の確定はしない。無診察診療に該当する内容は避ける
+薬・休職・診断書の可否をメールで判断しない。診察時の相談に誘導する
+初診/紹介状の案内は明確に。必要なら「紹介状を持参してください」と伝える
+未成年の場合、受け入れ可否と心理検査の制限を案内し、必要なら小児精神科の可能性に言及
+希死念慮/強い危険が疑われる場合は、救急案内や相談窓口を促す文を含める
+トーン：まず共感→次に案内。優しいが事務的に明確な文体
+
+【返信テンプレート構造】
+
+挨拶: 「お問い合わせありがとうございます」
+共感: 状況を理解していることを示す
+案内: 具体的な対応方法を明示
+締め: 「以上よろしくお願いします」
+署名: 「とやのメンタルクリニック\ntoyano-mental.com」`;
 
 export function Dashboard() {
     const [emails, setEmails] = useState<Email[]>([])
@@ -18,7 +37,19 @@ export function Dashboard() {
     const [isGenerating, setIsGenerating] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
+    // Policy Editor State
+    const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
+    const [policy, setPolicy] = useState(DEFAULT_POLICY)
+
     const selectedEmail = emails.find(e => e.id === selectedEmailId)
+
+    // Load policy from localStorage on mount
+    useEffect(() => {
+        const savedPolicy = localStorage.getItem("response_policy")
+        if (savedPolicy) {
+            setPolicy(savedPolicy)
+        }
+    }, [])
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
@@ -81,7 +112,10 @@ export function Dashboard() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ inquiry: selectedEmail.inquiry }),
+                body: JSON.stringify({
+                    inquiry: selectedEmail.inquiry,
+                    policy: policy // Fixed: Send policy in request
+                }),
             });
 
             if (!res.ok) {
@@ -105,6 +139,12 @@ export function Dashboard() {
         toast.success("クリップボードにコピーしました");
     };
 
+    const handleSavePolicy = () => {
+        localStorage.setItem("response_policy", policy)
+        toast.success("ポリシーを保存しました")
+        setIsPolicyModalOpen(false)
+    }
+
     // Format date for display: MM/DD HH:mm
     const formatListDate = (dateStr: string) => {
         try {
@@ -124,8 +164,19 @@ export function Dashboard() {
         <div className="flex h-screen w-full bg-[#f9fafb] text-[#1f2937]">
             {/* Left Column (w-2/5) */}
             <div className="w-2/5 flex flex-col border-r border-gray-200 h-full bg-white">
-                <div className="p-6 border-b border-gray-200">
-                    <h1 className="text-2xl font-bold mb-4">問い合わせメール一覧</h1>
+                <div className="p-6 border-b border-gray-200 flex flex-col gap-4">
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-2xl font-bold">問い合わせメール一覧</h1>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setIsPolicyModalOpen(true)}
+                            className="text-gray-500 hover:text-gray-700"
+                            title="設定"
+                        >
+                            <Settings className="h-6 w-6" />
+                        </Button>
+                    </div>
                     <div className="flex items-center gap-2">
                         <input
                             type="file"
@@ -244,7 +295,48 @@ export function Dashboard() {
                     </div>
                 )}
             </div>
+
+            {/* Policy Editor Modal */}
+            {isPolicyModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                            <h2 className="text-xl font-bold text-gray-800">返信ポリシー編集</h2>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsPolicyModalOpen(false)}
+                            >
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                        <div className="p-6 flex-1 overflow-auto">
+                            <Textarea
+                                className="w-full font-mono text-sm leading-relaxed min-h-[500px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                                value={policy}
+                                onChange={(e) => setPolicy(e.target.value)}
+                                placeholder="返信ポリシーを入力してください..."
+                                rows={20}
+                            />
+                        </div>
+                        <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsPolicyModalOpen(false)}
+                                className="px-6"
+                            >
+                                キャンセル
+                            </Button>
+                            <Button
+                                className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8"
+                                onClick={handleSavePolicy}
+                            >
+                                保存
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
-
