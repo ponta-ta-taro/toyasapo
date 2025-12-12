@@ -17,8 +17,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { saveDraft, savePolicy, toggleDraftApproval, getApprovedDrafts } from "@/lib/db"
-import { Checkbox } from "@/components/ui/checkbox"
+import { saveDraft, savePolicy, getApprovedDrafts } from "@/lib/db"
+
 import { Label } from "@/components/ui/label"
 
 const DEFAULT_POLICY = `あなたは「とやのメンタルクリニック」のメール返信アシスタントです。
@@ -37,8 +37,14 @@ const DEFAULT_POLICY = `あなたは「とやのメンタルクリニック」�
 挨拶: 「お問い合わせありがとうございます」
 共感: 状況を理解していることを示す
 案内: 具体的な対応方法を明示
-締め: 「以上よろしくお願いします」
-署名: 「とやのメンタルクリニック\ntoyano-mental.com」`;
+締め: 「以上よろしくお願いします」`;
+
+const DEFAULT_SIGNATURE = `--------------------------------------------------
+とやのメンタルクリニック
+〒000-0000 〇〇県〇〇市〇〇町1-1
+Tel: 00-0000-0000
+URL: https://toyano-mental.com
+--------------------------------------------------`;
 
 // Generate a simple hash for email content to identify unique emails
 const generateEmailHash = (datetime: string, inquiry: string) => {
@@ -52,9 +58,10 @@ export function Dashboard() {
     const [isGenerating, setIsGenerating] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // Policy Editor State
+    // Policy & Signature State
     const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
     const [policy, setPolicy] = useState(DEFAULT_POLICY)
+    const [signature, setSignature] = useState(DEFAULT_SIGNATURE)
 
     // Classification State
     const [isClassifying, setIsClassifying] = useState(false)
@@ -63,21 +70,32 @@ export function Dashboard() {
     const [isSortingByPriority, setIsSortingByPriority] = useState(false)
 
     // Firebase / Approval State
-    const [isApprovedForTraining, setIsApprovedForTraining] = useState(false)
-    const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
 
-    // Reset approval state when switching emails
+    const [isDraftSaved, setIsDraftSaved] = useState(false)
+
+    // Refine & Manual Input State
+    const [refineInstructions, setRefineInstructions] = useState("")
+    const [isManualInput, setIsManualInput] = useState(false)
+    const [manualInquiry, setManualInquiry] = useState("")
+
+    // Reset states when switching emails
     useEffect(() => {
-        setIsApprovedForTraining(false)
-        setCurrentDraftId(null)
+        if (selectedEmailId) {
+            setIsManualInput(false)
+        }
+        setGeneratedDraft("")
+
+        setIsDraftSaved(false)
+        setRefineInstructions("")
     }, [selectedEmailId])
 
-    // Load policy from localStorage on mount
+    // Load policy/signature from localStorage
     useEffect(() => {
         const savedPolicy = localStorage.getItem("response_policy")
-        if (savedPolicy) {
-            setPolicy(savedPolicy)
-        }
+        if (savedPolicy) setPolicy(savedPolicy)
+
+        const savedSignature = localStorage.getItem("response_signature")
+        if (savedSignature) setSignature(savedSignature)
     }, [])
 
     // Load cached classifications on email load
@@ -97,7 +115,7 @@ export function Dashboard() {
                 return email;
             });
 
-            // Only update if there are changes to avoid loop
+            // Only update if there are changes
             const hasChanges = updatedEmails.some((e, i) => e.classification !== emails[i].classification);
             if (hasChanges) {
                 setEmails(updatedEmails);
@@ -212,50 +230,65 @@ export function Dashboard() {
         toast.success("AI分類が完了しました");
     };
 
-    const handleGenerateDraft = async () => {
+    const startManualInput = () => {
+        setSelectedEmailId(null)
+        setIsManualInput(true)
+        setManualInquiry("")
+        setGeneratedDraft("")
+
+        setIsDraftSaved(false)
+    }
+
+    const handleGenerate = async (isRefine = false) => {
         const selectedEmail = emails.find(e => e.id === selectedEmailId);
-        if (!selectedEmail) return;
+        const inquiryText = isManualInput ? manualInquiry : selectedEmail?.inquiry;
+
+        if (!inquiryText) {
+            toast.error("問い合わせ内容がありません")
+            return;
+        }
 
         setIsGenerating(true);
-        setGeneratedDraft("");
-        setCurrentDraftId(null);
-        setIsApprovedForTraining(false);
+
+        // Don't reset draft if refining, to allow smooth transition or simple overwrite
+        // But for UX, maybe show loading state clearly
 
         try {
-            // Fetch past approved responses for few-shot learning
             const pastResponses = await getApprovedDrafts(3);
 
             const res = await fetch("/api/generate", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    inquiry: selectedEmail.inquiry,
+                    inquiry: inquiryText,
                     policy: policy,
-                    pastResponses
+                    pastResponses,
+                    mode: isRefine ? "refine" : "create",
+                    currentDraft: isRefine ? generatedDraft : undefined,
+                    instructions: isRefine ? refineInstructions : undefined
                 }),
             });
 
-            if (!res.ok) {
-                throw new Error("Generation failed");
-            }
+            if (!res.ok) throw new Error("Generation failed");
 
             const data = await res.json();
-            setGeneratedDraft(data.draft);
 
-            // Save draft to Firestore automatically
-            if (data.draft) {
-                const draftId = await saveDraft({
-                    emailId: generateEmailHash(selectedEmail.datetime, selectedEmail.inquiry), // Use hash as ID surrogate
-                    inquiry: selectedEmail.inquiry,
-                    generatedDraft: data.draft,
-                    isApproved: false
-                });
-                if (draftId) setCurrentDraftId(draftId);
+            // Append signature
+            let finalDraft = data.draft;
+            if (signature) {
+                finalDraft += `\n\n${signature}`;
             }
 
-            toast.success("返信下書きを生成しました");
+            setGeneratedDraft(finalDraft);
+
+            // Reset refine instructions after success
+            if (isRefine) setRefineInstructions("");
+
+            // Reset saved status since content changed
+            setIsDraftSaved(false);
+            ;
+
+            toast.success(isRefine ? "返信を再生成しました" : "返信下書きを生成しました");
         } catch (error) {
             console.error(error);
             toast.error("生成に失敗しました");
@@ -270,23 +303,36 @@ export function Dashboard() {
         toast.success("クリップボードにコピーしました");
     };
 
-    const handleApprovalChange = async (checked: boolean) => {
-        setIsApprovedForTraining(checked);
-        if (currentDraftId) {
-            await toggleDraftApproval(currentDraftId, checked);
-            if (checked) {
-                toast.success("学習データとして承認しました");
-            }
+    const handleSaveToTraining = async () => {
+        if (!generatedDraft) return;
+
+        const inquiryText = isManualInput ? manualInquiry : emails.find(e => e.id === selectedEmailId)?.inquiry || "";
+        const emailDate = isManualInput ? new Date().toISOString() : emails.find(e => e.id === selectedEmailId)?.datetime || new Date().toISOString();
+
+        const draftId = await saveDraft({
+            emailId: generateEmailHash(emailDate, inquiryText),
+            inquiry: inquiryText,
+            generatedDraft: generatedDraft,
+            isApproved: true // Direct save implies approval for learning
+        });
+
+        if (draftId) {
+
+            setIsDraftSaved(true);
+            toast.success("学習データとして保存しました");
+        } else {
+            toast.error("保存に失敗しました(Firebase設定を確認してください)");
         }
     };
 
     const handleSavePolicy = async () => {
         localStorage.setItem("response_policy", policy)
+        localStorage.setItem("response_signature", signature)
 
         // Also save to Firestore
         await savePolicy(policy);
 
-        toast.success("ポリシーを保存しました")
+        toast.success("設定を保存しました")
         setIsPolicyModalOpen(false)
     }
 
@@ -336,6 +382,9 @@ export function Dashboard() {
 
     const selectedEmail = emails.find(e => e.id === selectedEmailId);
 
+    // Determine active view mode
+    const isReadyToGenerate = (selectedEmailId && selectedEmail) || (isManualInput && manualInquiry.length > 5);
+
     return (
         <div className="flex h-screen w-full bg-[#f9fafb] text-[#1f2937]">
             {/* Left Column (w-2/5) */}
@@ -353,6 +402,15 @@ export function Dashboard() {
                             <Settings className="h-6 w-6" />
                         </Button>
                     </div>
+
+                    {/* Add Direct Input Button */}
+                    <Button
+                        variant={isManualInput ? "default" : "outline"}
+                        className={cn("w-full justify-start", isManualInput ? "bg-green-600 hover:bg-green-700" : "text-green-700 border-green-200 bg-green-50")}
+                        onClick={startManualInput}
+                    >
+                        <span className="mr-2 text-lg">+</span> メール直接入力（新規作成）
+                    </Button>
 
                     {/* Classification Controls */}
                     <div className="flex items-center gap-2">
@@ -418,7 +476,7 @@ export function Dashboard() {
                             onChange={handleFileUpload}
                         />
                         <Button
-                            className="w-full bg-[#3B82F6] hover:bg-[#2563eb] text-lg py-6"
+                            className="w-full bg-[#3B82F6] hover:bg-[#2563eb] py-4"
                             onClick={() => fileInputRef.current?.click()}
                         >
                             <Upload className="mr-2 h-5 w-5" />
@@ -439,7 +497,7 @@ export function Dashboard() {
                                 )}
                                 onClick={() => {
                                     setSelectedEmailId(email.id)
-                                    setGeneratedDraft("") // Reset draft when switching emails
+                                    // Reset manual input mode implicitly via useEffect or logic
                                 }}
                             >
                                 <div className="flex justify-between items-start mb-2">
@@ -468,12 +526,7 @@ export function Dashboard() {
                         ))}
                         {emails.length === 0 && (
                             <div className="p-8 text-center text-gray-400 text-lg">
-                                メールがありません。<br />CSVをアップロードしてください。
-                            </div>
-                        )}
-                        {emails.length > 0 && derivedEmails.length === 0 && (
-                            <div className="p-8 text-center text-gray-400 text-base">
-                                条件に一致するメールがありません
+                                メールがありません。<br />CSVアップロードか直接入力を選択してください。
                             </div>
                         )}
                     </div>
@@ -482,34 +535,52 @@ export function Dashboard() {
 
             {/* Right Column (w-3/5) */}
             <div className="w-3/5 flex flex-col h-full bg-[#f9fafb]">
-                {selectedEmail ? (
+                {selectedEmail || isManualInput ? (
                     <div className="flex flex-col h-full">
                         {/* Detail View Area (Top Half) */}
                         <div className="h-1/2 p-6 pb-3 flex flex-col">
-                            <Card className="flex-1 flex flex-col overflow-hidden shadow-sm border-gray-200">
-                                <div className="p-6 pb-4 border-b border-gray-100 bg-white">
-                                    <div className="flex justify-between items-start">
-                                        <div className="text-xl font-bold text-gray-800 mb-1">
-                                            {selectedEmail.datetime}
+                            <Card className="flex-1 flex flex-col overflow-hidden shadow-sm border-gray-200 bg-white">
+                                {isManualInput ? (
+                                    <>
+                                        <div className="p-4 border-b border-green-100 bg-green-50 text-green-800 font-bold">
+                                            メール本文（直接入力）
                                         </div>
-                                        {selectedEmail.classification && (
-                                            <div className="flex flex-col items-end gap-1">
-                                                <Badge variant="outline" className={getCategoryBadgeColor(selectedEmail.classification.category)}>
-                                                    {selectedEmail.classification.category}
-                                                </Badge>
-                                                <div className="text-xs text-gray-500">
-                                                    優先度: <span className="font-bold">{selectedEmail.classification.priority}</span>
-                                                    <span className="ml-2 text-gray-400">({selectedEmail.classification.reason})</span>
+                                        <Textarea
+                                            className="flex-1 p-6 resize-none border-0 text-lg leading-relaxed focus-visible:ring-0"
+                                            placeholder="ここに返信したいメール本文を貼り付けてください"
+                                            value={manualInquiry}
+                                            onChange={(e) => setManualInquiry(e.target.value)}
+                                        />
+                                    </>
+                                ) : (
+                                    selectedEmail && (
+                                        <>
+                                            <div className="p-6 pb-4 border-b border-gray-100 bg-white">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="text-xl font-bold text-gray-800 mb-1">
+                                                        {selectedEmail.datetime}
+                                                    </div>
+                                                    {selectedEmail.classification && (
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <Badge variant="outline" className={getCategoryBadgeColor(selectedEmail.classification.category)}>
+                                                                {selectedEmail.classification.category}
+                                                            </Badge>
+                                                            <div className="text-xs text-gray-500">
+                                                                優先度: <span className="font-bold">{selectedEmail.classification.priority}</span>
+                                                                <span className="ml-2 text-gray-400">({selectedEmail.classification.reason})</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <ScrollArea className="flex-1 bg-white">
-                                    <div className="p-8 text-gray-700 leading-relaxed whitespace-pre-wrap text-lg">
-                                        {selectedEmail.inquiry}
-                                    </div>
-                                </ScrollArea>
+                                            <ScrollArea className="flex-1 bg-white">
+                                                <div className="p-8 text-gray-700 leading-relaxed whitespace-pre-wrap text-lg">
+                                                    {selectedEmail.inquiry}
+                                                </div>
+                                            </ScrollArea>
+                                        </>
+                                    )
+                                )}
                             </Card>
                         </div>
 
@@ -519,8 +590,8 @@ export function Dashboard() {
                                 <Button
                                     size="lg"
                                     className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-12 py-6 text-xl shadow-md min-w-[320px]"
-                                    onClick={handleGenerateDraft}
-                                    disabled={isGenerating}
+                                    onClick={() => handleGenerate(false)}
+                                    disabled={isGenerating || !isReadyToGenerate}
                                 >
                                     {isGenerating ? (
                                         <>
@@ -534,49 +605,63 @@ export function Dashboard() {
                             </div>
 
                             {/* Draft Area */}
-                            <Card className="flex-1 relative shadow-sm border-gray-200 flex flex-col overflow-hidden">
+                            <Card className="flex-1 relative shadow-sm border-gray-200 flex flex-col overflow-hidden bg-white">
                                 <Textarea
                                     className="flex-1 p-6 resize-none border-0 focus-visible:ring-0 text-lg leading-relaxed"
                                     placeholder="ここに返信案が生成されます..."
                                     value={generatedDraft}
-                                    onChange={(e) => setGeneratedDraft(e.target.value)}
+                                    onChange={(e) => {
+                                        setGeneratedDraft(e.target.value)
+                                        setIsDraftSaved(false)
+                                    }}
                                 />
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="absolute top-4 right-4 bg-white/80 hover:bg-slate-100 z-10"
-                                    onClick={handleCopy}
-                                    disabled={!generatedDraft}
-                                >
-                                    <Copy className="h-4 w-4 mr-2" />
-                                    コピー
-                                </Button>
-                            </Card>
-                            {/* Approval Checkbox */}
-                            <div className="mt-4 flex items-center space-x-2">
-                                <Checkbox
-                                    id="training-approval"
-                                    checked={isApprovedForTraining}
-                                    onCheckedChange={handleApprovalChange}
-                                    disabled={!generatedDraft}
-                                />
-                                <div className="grid gap-1.5 leading-none">
-                                    <Label
-                                        htmlFor="training-approval"
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                <div className="absolute top-4 right-4 flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="bg-white/80 hover:bg-slate-100"
+                                        onClick={handleCopy}
+                                        disabled={!generatedDraft}
                                     >
-                                        この返信を学習に使う
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        チェックすると、今後のAI生成の参考になります
-                                    </p>
+                                        <Copy className="h-4 w-4 mr-2" />
+                                        コピー
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant={isDraftSaved ? "secondary" : "default"}
+                                        className={cn("transition-colors", isDraftSaved ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-purple-600 hover:bg-purple-700 text-white")}
+                                        onClick={handleSaveToTraining}
+                                        disabled={!generatedDraft || isDraftSaved}
+                                    >
+                                        {isDraftSaved ? "保存済み ✓" : "この返信を学習保存"}
+                                    </Button>
                                 </div>
-                            </div>
+
+                                {/* Regeneration Area (Inside Draft Card at bottom) */}
+                                {generatedDraft && (
+                                    <div className="p-3 border-t border-gray-100 bg-slate-50 flex items-center gap-2">
+                                        <Textarea
+                                            className="min-h-[40px] h-[40px] resize-none py-2 px-3 text-sm"
+                                            placeholder="追加指示（例：もっと丁寧に、URLを追加して...）"
+                                            value={refineInstructions}
+                                            onChange={(e) => setRefineInstructions(e.target.value)}
+                                        />
+                                        <Button
+                                            size="sm"
+                                            className="shrink-0 bg-slate-700 hover:bg-slate-800 text-white h-[40px]"
+                                            onClick={() => handleGenerate(true)}
+                                            disabled={isGenerating || !refineInstructions.trim()}
+                                        >
+                                            再生成
+                                        </Button>
+                                    </div>
+                                )}
+                            </Card>
                         </div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-center h-full text-gray-400 text-xl">
-                        左側のリストからメールを選択してください
+                        左側のリストからメールを選択するか、<br />「メール直接入力」ボタンを押してください
                     </div>
                 )}
             </div>
@@ -584,38 +669,39 @@ export function Dashboard() {
             {/* Policy Editor Modal */}
             {isPolicyModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl flex flex-col max-h-[90vh]">
+                    <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl flex flex-col max-h-[95vh]">
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-bold text-gray-800">返信ポリシー編集</h2>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setIsPolicyModalOpen(false)}
-                            >
+                            <h2 className="text-xl font-bold text-gray-800">設定（返信ポリシー・署名）</h2>
+                            <Button variant="ghost" size="icon" onClick={() => setIsPolicyModalOpen(false)}>
                                 <X className="h-5 w-5" />
                             </Button>
                         </div>
-                        <div className="p-6 flex-1 overflow-auto">
-                            <Textarea
-                                className="w-full font-mono text-sm leading-relaxed min-h-[500px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
-                                value={policy}
-                                onChange={(e) => setPolicy(e.target.value)}
-                                placeholder="返信ポリシーを入力してください..."
-                                rows={20}
-                            />
+                        <div className="p-6 flex-1 overflow-auto flex flex-col gap-6">
+                            <div>
+                                <Label className="mb-2 block font-bold text-gray-700">返信ポリシー (System Prompt)</Label>
+                                <Textarea
+                                    className="w-full font-mono text-sm leading-relaxed min-h-[300px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                                    value={policy}
+                                    onChange={(e) => setPolicy(e.target.value)}
+                                    placeholder="返信ポリシーを入力..."
+                                />
+                            </div>
+                            <div>
+                                <Label className="mb-2 block font-bold text-gray-700">署名 (Signature)</Label>
+                                <Textarea
+                                    className="w-full font-mono text-sm leading-relaxed min-h-[150px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                                    value={signature}
+                                    onChange={(e) => setSignature(e.target.value)}
+                                    placeholder="署名を入力..."
+                                />
+                                <p className="text-xs text-gray-500 mt-1">※生成された返信の末尾に自動的に付与されます</p>
+                            </div>
                         </div>
                         <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsPolicyModalOpen(false)}
-                                className="px-6"
-                            >
+                            <Button variant="outline" onClick={() => setIsPolicyModalOpen(false)} className="px-6">
                                 キャンセル
                             </Button>
-                            <Button
-                                className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8"
-                                onClick={handleSavePolicy}
-                            >
+                            <Button className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8" onClick={handleSavePolicy}>
                                 保存
                             </Button>
                         </div>

@@ -8,9 +8,9 @@ const anthropic = new Anthropic({
 
 export async function POST(req: Request) {
     try {
-        const { inquiry, policy, pastResponses } = await req.json();
+        const { inquiry, policy, pastResponses, mode, currentDraft, instructions } = await req.json();
 
-        if (!inquiry) {
+        if (!inquiry && mode !== "refine") {
             return NextResponse.json(
                 { error: "問い合わせ内容が不足しています" },
                 { status: 400 }
@@ -30,7 +30,8 @@ export async function POST(req: Request) {
 【入力】
 問い合わせ内容を提供します。`;
 
-        // Append Few-Shot examples if available
+        // Append Few-Shot examples if available (only for Create mode or if relevant context)
+        // For refinement, we might prioritize the user's explicit instruction, but keeping examples doesn't hurt.
         if (pastResponses && Array.isArray(pastResponses) && pastResponses.length > 0) {
             systemPrompt += `\n\n【過去の返信事例（参考）】\n以下の事例の書き方やトーンを参考にしてください。\n`;
             pastResponses.forEach((draft: Draft, index: number) => {
@@ -38,17 +39,29 @@ export async function POST(req: Request) {
             });
         }
 
+        let messages: { role: "user" | "assistant"; content: string }[] = [];
+
+        if (mode === "refine") {
+            if (!currentDraft || !instructions) {
+                return NextResponse.json({ error: "修正元の文面または指示が不足しています" }, { status: 400 });
+            }
+            messages = [
+                { role: "user", content: inquiry || "（問い合わせ内容不明）" },
+                { role: "assistant", content: currentDraft },
+                { role: "user", content: `この返信案に対して、以下の修正を加えて書き直してください：\n\n${instructions}` }
+            ];
+        } else {
+            messages = [
+                { role: "user", content: inquiry }
+            ];
+        }
+
         const msg = await anthropic.messages.create({
             model: "claude-sonnet-4-20250514",
             max_tokens: 1000,
             temperature: 0.7,
             system: systemPrompt,
-            messages: [
-                {
-                    role: "user",
-                    content: inquiry,
-                },
-            ],
+            messages: messages,
         });
 
         const draft = msg.content[0].type === 'text' ? msg.content[0].text : '';
