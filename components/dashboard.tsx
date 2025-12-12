@@ -1,15 +1,22 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Email } from "@/lib/types"
+import { useState, useRef, useEffect, useMemo } from "react"
+import { Email, Classification } from "@/lib/types"
 import Papa from "papaparse"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const DEFAULT_POLICY = `あなたは「とやのメンタルクリニック」のメール返信アシスタントです。
 以下のポリシーに従って、問い合わせへの返信を作成してください。
@@ -30,6 +37,11 @@ const DEFAULT_POLICY = `あなたは「とやのメンタルクリニック」�
 締め: 「以上よろしくお願いします」
 署名: 「とやのメンタルクリニック\ntoyano-mental.com」`;
 
+// Generate a simple hash for email content to identify unique emails
+const generateEmailHash = (datetime: string, inquiry: string) => {
+    return btoa(unescape(encodeURIComponent(`${datetime}|${inquiry}`))).slice(0, 32);
+};
+
 export function Dashboard() {
     const [emails, setEmails] = useState<Email[]>([])
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
@@ -41,7 +53,11 @@ export function Dashboard() {
     const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
     const [policy, setPolicy] = useState(DEFAULT_POLICY)
 
-    const selectedEmail = emails.find(e => e.id === selectedEmailId)
+    // Classification State
+    const [isClassifying, setIsClassifying] = useState(false)
+    const [classificationProgress, setClassificationProgress] = useState<{ current: number, total: number } | null>(null)
+    const [filterCategory, setFilterCategory] = useState<string | null>(null)
+    const [isSortingByPriority, setIsSortingByPriority] = useState(false)
 
     // Load policy from localStorage on mount
     useEffect(() => {
@@ -50,6 +66,33 @@ export function Dashboard() {
             setPolicy(savedPolicy)
         }
     }, [])
+
+    // Load cached classifications on email load
+    useEffect(() => {
+        if (emails.length === 0) return;
+
+        const cachedDataStr = localStorage.getItem("email_classifications");
+        if (!cachedDataStr) return;
+
+        try {
+            const cachedData = JSON.parse(cachedDataStr) as Record<string, Classification>;
+            const updatedEmails = emails.map(email => {
+                const hash = generateEmailHash(email.datetime, email.inquiry);
+                if (cachedData[hash] && !email.classification) {
+                    return { ...email, classification: cachedData[hash] };
+                }
+                return email;
+            });
+
+            // Only update if there are changes to avoid loop
+            const hasChanges = updatedEmails.some((e, i) => e.classification !== emails[i].classification);
+            if (hasChanges) {
+                setEmails(updatedEmails);
+            }
+        } catch (e) {
+            console.error("Failed to load cached classifications", e);
+        }
+    }, [emails.length]); // Dependency on length mostly sufficient for initial load
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
@@ -100,7 +143,64 @@ export function Dashboard() {
         })
     }
 
+    const handleClassify = async () => {
+        setIsClassifying(true);
+        setClassificationProgress({ current: 0, total: emails.length });
+
+        const cachedDataStr = localStorage.getItem("email_classifications");
+        const cachedData = cachedDataStr ? JSON.parse(cachedDataStr) as Record<string, Classification> : {};
+
+        const newEmails = [...emails];
+
+        for (let i = 0; i < newEmails.length; i++) {
+            const email = newEmails[i];
+            const hash = generateEmailHash(email.datetime, email.inquiry);
+
+            if (email.classification) {
+                setClassificationProgress({ current: i + 1, total: emails.length });
+                continue;
+            }
+
+            if (cachedData[hash]) {
+                newEmails[i] = { ...email, classification: cachedData[hash] };
+                setClassificationProgress({ current: i + 1, total: emails.length });
+                continue;
+            }
+
+            try {
+                const res = await fetch("/api/classify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ inquiry: email.inquiry }),
+                });
+
+                if (res.ok) {
+                    const classification: Classification = await res.json();
+                    newEmails[i] = { ...email, classification };
+                    cachedData[hash] = classification;
+                } else {
+                    console.error(`Failed to classify email index ${i}`);
+                }
+            } catch (error) {
+                console.error(`Error classifying email index ${i}`, error);
+            }
+
+            setClassificationProgress({ current: i + 1, total: emails.length });
+
+            // Periodically update state to show progress in UI
+            if (i % 5 === 0 || i === newEmails.length - 1) {
+                setEmails([...newEmails]);
+                localStorage.setItem("email_classifications", JSON.stringify(cachedData));
+            }
+        }
+
+        setIsClassifying(false);
+        setClassificationProgress(null);
+        toast.success("AI分類が完了しました");
+    };
+
     const handleGenerateDraft = async () => {
+        const selectedEmail = emails.find(e => e.id === selectedEmailId);
         if (!selectedEmail) return;
 
         setIsGenerating(true);
@@ -114,7 +214,7 @@ export function Dashboard() {
                 },
                 body: JSON.stringify({
                     inquiry: selectedEmail.inquiry,
-                    policy: policy // Fixed: Send policy in request
+                    policy: policy
                 }),
             });
 
@@ -160,6 +260,37 @@ export function Dashboard() {
         }
     }
 
+    const getCategoryBadgeColor = (category: string) => {
+        switch (category) {
+            case "予約": return "bg-blue-100 text-blue-800 border-blue-200";
+            case "症状相談": return "bg-green-100 text-green-800 border-green-200";
+            case "書類": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+            case "料金": return "bg-orange-100 text-orange-800 border-orange-200";
+            case "クレーム": return "bg-red-100 text-red-800 border-red-200";
+            default: return "bg-gray-100 text-gray-800 border-gray-200";
+        }
+    }
+
+    const derivedEmails = useMemo(() => {
+        let result = [...emails];
+
+        if (filterCategory) {
+            result = result.filter(e => e.classification?.category === filterCategory);
+        }
+
+        if (isSortingByPriority) {
+            result.sort((a, b) => {
+                const pA = a.classification?.priority || 0;
+                const pB = b.classification?.priority || 0;
+                return pB - pA;
+            });
+        }
+
+        return result;
+    }, [emails, filterCategory, isSortingByPriority]);
+
+    const selectedEmail = emails.find(e => e.id === selectedEmailId);
+
     return (
         <div className="flex h-screen w-full bg-[#f9fafb] text-[#1f2937]">
             {/* Left Column (w-2/5) */}
@@ -177,6 +308,62 @@ export function Dashboard() {
                             <Settings className="h-6 w-6" />
                         </Button>
                     </div>
+
+                    {/* Classification Controls */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                            {isClassifying ? (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded text-sm text-slate-600">
+                                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                    分類中... {classificationProgress?.current}/{classificationProgress?.total}
+                                </div>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-start text-slate-600 hover:text-slate-900 border-slate-300"
+                                    onClick={handleClassify}
+                                    disabled={emails.length === 0}
+                                >
+                                    <Play className="mr-2 h-4 w-4 text-purple-600" />
+                                    AI分類を実行
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Filter & Sort */}
+                    <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="flex-1 justify-between">
+                                    <div className="flex items-center">
+                                        <Filter className="mr-2 h-3 w-3" />
+                                        {filterCategory || "カテゴリ"}
+                                    </div>
+                                    {filterCategory && <X className="h-3 w-3 ml-2" onClick={(e) => { e.stopPropagation(); setFilterCategory(null); }} />}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => setFilterCategory(null)}>全て</DropdownMenuItem>
+                                {["予約", "症状相談", "書類", "料金", "クレーム", "その他"].map(cat => (
+                                    <DropdownMenuItem key={cat} onClick={() => setFilterCategory(cat)}>
+                                        {cat}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Button
+                            variant={isSortingByPriority ? "secondary" : "outline"}
+                            size="sm"
+                            className={cn("flex-1", isSortingByPriority && "bg-blue-50 text-blue-700 border-blue-200")}
+                            onClick={() => setIsSortingByPriority(!isSortingByPriority)}
+                        >
+                            <ArrowUpDown className="mr-2 h-3 w-3" />
+                            優先度順
+                        </Button>
+                    </div>
+
                     <div className="flex items-center gap-2">
                         <input
                             type="file"
@@ -197,12 +384,13 @@ export function Dashboard() {
 
                 <ScrollArea className="flex-1">
                     <div className="flex flex-col">
-                        {emails.map((email) => (
+                        {derivedEmails.map((email) => (
                             <div
                                 key={email.id}
                                 className={cn(
                                     "p-5 border-b border-gray-100 cursor-pointer transition-colors hover:bg-slate-50 relative",
-                                    selectedEmailId === email.id ? "bg-blue-50 hover:bg-blue-50" : ""
+                                    selectedEmailId === email.id ? "bg-blue-50 hover:bg-blue-50" : "",
+                                    email.classification?.priority === 5 ? "border-l-4 border-l-red-500" : ""
                                 )}
                                 onClick={() => {
                                     setSelectedEmailId(email.id)
@@ -210,11 +398,25 @@ export function Dashboard() {
                                 }}
                             >
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className="text-base text-gray-500 font-medium">
-                                        {formatListDate(email.datetime)}
-                                    </span>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-sm text-gray-500 font-medium">
+                                            {formatListDate(email.datetime)}
+                                        </span>
+                                        {email.classification && (
+                                            <div className="flex gap-2 items-center mt-1">
+                                                <Badge variant="outline" className={cn("font-normal border", getCategoryBadgeColor(email.classification.category))}>
+                                                    {email.classification.category}
+                                                </Badge>
+                                                <div className="flex text-yellow-500 text-xs">
+                                                    {Array.from({ length: email.classification.priority }).map((_, i) => (
+                                                        <span key={i}>★</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <p className="text-base text-gray-700 line-clamp-2 leading-relaxed">
+                                <p className="text-base text-gray-700 line-clamp-2 leading-relaxed mt-1">
                                     {email.inquiry}
                                 </p>
                             </div>
@@ -222,6 +424,11 @@ export function Dashboard() {
                         {emails.length === 0 && (
                             <div className="p-8 text-center text-gray-400 text-lg">
                                 メールがありません。<br />CSVをアップロードしてください。
+                            </div>
+                        )}
+                        {emails.length > 0 && derivedEmails.length === 0 && (
+                            <div className="p-8 text-center text-gray-400 text-base">
+                                条件に一致するメールがありません
                             </div>
                         )}
                     </div>
@@ -236,8 +443,21 @@ export function Dashboard() {
                         <div className="h-1/2 p-6 pb-3 flex flex-col">
                             <Card className="flex-1 flex flex-col overflow-hidden shadow-sm border-gray-200">
                                 <div className="p-6 pb-4 border-b border-gray-100 bg-white">
-                                    <div className="text-xl font-bold text-gray-800 mb-1">
-                                        {selectedEmail.datetime}
+                                    <div className="flex justify-between items-start">
+                                        <div className="text-xl font-bold text-gray-800 mb-1">
+                                            {selectedEmail.datetime}
+                                        </div>
+                                        {selectedEmail.classification && (
+                                            <div className="flex flex-col items-end gap-1">
+                                                <Badge variant="outline" className={getCategoryBadgeColor(selectedEmail.classification.category)}>
+                                                    {selectedEmail.classification.category}
+                                                </Badge>
+                                                <div className="text-xs text-gray-500">
+                                                    優先度: <span className="font-bold">{selectedEmail.classification.priority}</span>
+                                                    <span className="ml-2 text-gray-400">({selectedEmail.classification.reason})</span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <ScrollArea className="flex-1 bg-white">
