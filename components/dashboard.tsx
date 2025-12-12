@@ -17,7 +17,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { saveDraft, getApprovedDrafts, getSettings, saveSettings } from "@/lib/db"
+import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails } from "@/lib/db"
 
 import { Label } from "@/components/ui/label"
 
@@ -83,6 +83,10 @@ export function Dashboard() {
     const [isManualInput, setIsManualInput] = useState(false)
     const [manualInquiry, setManualInquiry] = useState("")
 
+    // Upload Modal State
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+    const [pendingUploadEmails, setPendingUploadEmails] = useState<Email[]>([])
+
     // Reset states when switching emails
     useEffect(() => {
         if (selectedEmailId) {
@@ -136,7 +140,21 @@ export function Dashboard() {
         loadSettings();
     }, [])
 
-
+    // New: Load emails from Firestore
+    useEffect(() => {
+        const loadEmails = async () => {
+            try {
+                const storedEmails = await getEmails();
+                if (storedEmails && storedEmails.length > 0) {
+                    setEmails(storedEmails);
+                }
+            } catch (error) {
+                console.error("Failed to load emails from Firestore:", error);
+                toast.error("データの読み込みに失敗しました");
+            }
+        };
+        loadEmails();
+    }, []);
 
     // Load cached classifications on email load
     useEffect(() => {
@@ -147,6 +165,10 @@ export function Dashboard() {
 
         try {
             const cachedData = JSON.parse(cachedDataStr) as Record<string, Classification>;
+            // Note: If we loaded from Firestore, emails might already have classification. 
+            // LocalStorage cache might be outdated or useful only if firestore load failed or for new CSVs.
+            // Let's rely on Firestore data if present, only enhance if missing.
+
             const updatedEmails = emails.map(email => {
                 const hash = generateEmailHash(email.datetime, email.inquiry);
                 if (cachedData[hash] && !email.classification) {
@@ -176,7 +198,7 @@ export function Dashboard() {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: "greedy",
-            complete: (results) => {
+            complete: async (results) => {
                 if (results.errors.length > 0) {
                     // handle errors
                 }
@@ -200,8 +222,42 @@ export function Dashboard() {
                     return
                 }
 
-                setEmails(newEmails)
-                toast.success(`${newEmails.length}件のメールを読み込みました`)
+                // Handle Overwrite / Append
+                if (emails.length > 0) {
+                    // Simple confirm for MVP
+                    if (window.confirm("既存のデータがあります。「OK」で追加、「キャンセル」で上書き（既存データ削除）しますか？\n\nOK: 追加モード\nキャンセル: 上書きモード")) {
+                        // Append
+                        try {
+                            await saveEmails(newEmails);
+                            setEmails(prev => [...prev, ...newEmails]);
+                            toast.success(`${newEmails.length}件を追加しました`);
+                        } catch (e) {
+                            console.error(e);
+                            toast.error("保存に失敗しました");
+                        }
+                    } else {
+                        // Overwrite
+                        try {
+                            await deleteAllEmails(); // Clear DB
+                            await saveEmails(newEmails); // Save new
+                            setEmails(newEmails);
+                            toast.success(`${newEmails.length}件で上書きしました`);
+                        } catch (e) {
+                            console.error(e);
+                            toast.error("保存に失敗しました");
+                        }
+                    }
+                } else {
+                    // Initial load
+                    try {
+                        await saveEmails(newEmails);
+                        setEmails(newEmails);
+                        toast.success(`${newEmails.length}件のメールを読み込みました`);
+                    } catch (e) {
+                        console.error(e);
+                        toast.error("保存に失敗しました");
+                    }
+                }
 
                 if (fileInputRef.current) {
                     fileInputRef.current.value = ""
@@ -213,6 +269,40 @@ export function Dashboard() {
             }
         })
     }
+
+    const handleMergeChoice = async (mode: 'append' | 'overwrite') => {
+        const newEmails = pendingUploadEmails;
+
+        if (mode === 'append') {
+            try {
+                await saveEmails(newEmails);
+                // Re-sort combined list purely by date desc
+                const combined = [...emails, ...newEmails].sort((a, b) =>
+                    new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+                );
+                setEmails(combined);
+                toast.success(`${newEmails.length}件を追加しました`);
+            } catch (e) {
+                console.error(e);
+                toast.error("保存に失敗しました");
+            }
+        } else {
+            try {
+                await deleteAllEmails(); // Clear DB
+                await saveEmails(newEmails); // Save new
+                setEmails(newEmails);
+                toast.success(`${newEmails.length}件で上書きしました`);
+            } catch (e) {
+                console.error(e);
+                toast.error("保存に失敗しました");
+            }
+        }
+
+        setIsUploadModalOpen(false);
+        setPendingUploadEmails([]);
+    };
+
+
 
     const handleClassify = async () => {
         setIsClassifying(true);
@@ -234,6 +324,10 @@ export function Dashboard() {
 
             if (cachedData[hash]) {
                 newEmails[i] = { ...email, classification: cachedData[hash] };
+                // Also update Firestore if it was just loaded from cache but not in DB? 
+                // Ideally we update DB.
+                await updateEmail(newEmails[i]);
+
                 setClassificationProgress({ current: i + 1, total: emails.length });
                 continue;
             }
@@ -249,6 +343,10 @@ export function Dashboard() {
                     const classification: Classification = await res.json();
                     newEmails[i] = { ...email, classification };
                     cachedData[hash] = classification;
+
+                    // Save to Firestore immediately
+                    await updateEmail(newEmails[i]);
+
                 } else {
                     console.error(`Failed to classify email index ${i}`);
                 }
@@ -812,6 +910,57 @@ export function Dashboard() {
                             </Button>
                             <Button className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8" onClick={handleSavePolicy}>
                                 保存
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CSV Upload Confirmation Modal */}
+            {isUploadModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md bg-white rounded-lg shadow-xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-gray-200">
+                            <h2 className="text-xl font-bold text-gray-800">データの読み込みオプション</h2>
+                        </div>
+                        <div className="p-6 flex flex-col gap-4">
+                            <p className="text-gray-600">
+                                既に <span className="font-bold text-gray-900">{emails.length}件</span> のデータが存在します。<br />
+                                新しく読み込む <span className="font-bold text-gray-900">{pendingUploadEmails.length}件</span> のデータをどのように扱いますか？
+                            </p>
+
+                            <div className="flex flex-col gap-3 mt-2">
+                                <Button
+                                    className="w-full justify-between h-auto py-3 px-4 bg-blue-600 hover:bg-blue-700"
+                                    onClick={() => handleMergeChoice('append')}
+                                >
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-bold text-base">追加する (Append)</span>
+                                        <span className="text-xs font-normal text-blue-100">既存のデータに残し、新しいデータを追加します</span>
+                                    </div>
+                                    <span className="text-xl">＋</span>
+                                </Button>
+
+                                <Button
+                                    variant="destructive"
+                                    className="w-full justify-between h-auto py-3 px-4 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                                    onClick={() => handleMergeChoice('overwrite')}
+                                >
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-bold text-base">上書きする (Overwrite)</span>
+                                        <span className="text-xs font-normal text-red-500">既存のデータを全て削除し、入れ替えます</span>
+                                    </div>
+                                    <span className="text-xl">↺</span>
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-gray-200 flex justify-center">
+                            <Button
+                                variant="ghost"
+                                className="text-gray-500"
+                                onClick={() => setIsUploadModalOpen(false)}
+                            >
+                                キャンセル
                             </Button>
                         </div>
                     </div>

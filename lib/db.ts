@@ -1,11 +1,12 @@
 import { db } from './firebase';
-import { collection, addDoc, updateDoc, doc, query, where, orderBy, limit, getDocs, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
-import { Draft, ClinicSettings } from './types';
+import { collection, addDoc, updateDoc, doc, query, where, orderBy, limit, getDocs, serverTimestamp, setDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { Draft, ClinicSettings, Email } from './types';
 
 // Collection definitions
 const DRAFTS_COLLECTION = 'drafts';
 const POLICIES_COLLECTION = 'policies';
 const SETTINGS_COLLECTION = 'settings';
+const EMAILS_COLLECTION = 'emails';
 const DEFAULT_SETTINGS_DOC = 'default';
 
 /**
@@ -123,5 +124,105 @@ export async function getSettings(): Promise<ClinicSettings | null> {
     } catch (e) {
         console.error("Failed to get settings:", e);
         return null;
+    }
+}
+
+/**
+ * Save multiple emails (Batch)
+ */
+export async function saveEmails(emails: Email[]) {
+    if (!db) return;
+
+    // Firestore batch limit is 500
+    const chunkSize = 500;
+    for (let i = 0; i < emails.length; i += chunkSize) {
+        const chunk = emails.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+
+        chunk.forEach(email => {
+            const docRef = doc(db!, EMAILS_COLLECTION, email.id);
+            // Convert undefined to null or omit undefined fields if needed? 
+            // Firestore ignores undefined, but types might be strict.
+            // Let's strip undefined explicitly or just pass it if using modern SDK behavior.
+            // Safest to sanitize:
+            const dataToSave = JSON.parse(JSON.stringify(email));
+            batch.set(docRef, { ...dataToSave, createdAt: serverTimestamp() });
+        });
+
+        try {
+            await batch.commit();
+        } catch (e) {
+            console.error(`Failed to save batch ${i} - ${i + chunkSize}:`, e);
+            throw e;
+        }
+    }
+}
+
+/**
+ * Delete all emails (for overwrite)
+ */
+export async function deleteAllEmails() {
+    if (!db) return;
+
+    try {
+        const q = query(collection(db, EMAILS_COLLECTION));
+        const snapshot = await getDocs(q);
+
+        // Batch delete
+        const chunkSize = 500;
+        const docs = snapshot.docs;
+
+        for (let i = 0; i < docs.length; i += chunkSize) {
+            const chunk = docs.slice(i, i + chunkSize);
+            const batch = writeBatch(db);
+            chunk.forEach(d => batch.delete(d.ref));
+            await batch.commit();
+        }
+    } catch (e) {
+        console.error("Failed to delete emails:", e);
+        throw e;
+    }
+}
+
+/**
+ * Get all emails
+ */
+export async function getEmails(): Promise<Email[]> {
+    if (!db) return [];
+
+    try {
+        const snapshot = await getDocs(collection(db, EMAILS_COLLECTION));
+
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                datetime: data.datetime,
+                inquiry: data.inquiry,
+                response: data.response,
+                classification: data.classification
+            } as Email;
+        });
+    } catch (e) {
+        console.error("Failed to get emails:", e);
+        return [];
+    }
+}
+
+/**
+ * Update single email (for classification)
+ */
+export async function updateEmail(email: Email) {
+    if (!db) return;
+
+    try {
+        const docRef = doc(db, EMAILS_COLLECTION, email.id);
+        // Only update specific fields to be safe, or set entire object
+        await updateDoc(docRef, {
+            classification: email.classification,
+            updatedAt: serverTimestamp()
+        });
+    } catch (e) {
+        console.error("Failed to update email:", e);
     }
 }
