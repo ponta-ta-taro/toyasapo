@@ -58,10 +58,15 @@ export function Dashboard() {
     const [isGenerating, setIsGenerating] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // Policy & Signature State
+    // Policy & Signature & Clinic Info State
     const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
     const [policy, setPolicy] = useState(DEFAULT_POLICY)
     const [signature, setSignature] = useState(DEFAULT_SIGNATURE)
+    // New Clinic Info States
+    const [reservationUrl, setReservationUrl] = useState("")
+    const [clinicHours, setClinicHours] = useState("")
+    const [phoneNumber, setPhoneNumber] = useState("")
+    const [commonInfo, setCommonInfo] = useState("")
 
     // Classification State
     const [isClassifying, setIsClassifying] = useState(false)
@@ -96,6 +101,14 @@ export function Dashboard() {
 
         const savedSignature = localStorage.getItem("response_signature")
         if (savedSignature) setSignature(savedSignature)
+    }, [])
+
+    // Load Clinic Info from localStorage
+    useEffect(() => {
+        setReservationUrl(localStorage.getItem("clinic_reservation_url") || "")
+        setClinicHours(localStorage.getItem("clinic_hours") || "")
+        setPhoneNumber(localStorage.getItem("clinic_phone") || "")
+        setCommonInfo(localStorage.getItem("clinic_common_info") || "")
     }, [])
 
     // Load cached classifications on email load
@@ -254,7 +267,7 @@ export function Dashboard() {
         // But for UX, maybe show loading state clearly
 
         try {
-            const pastResponses = await getApprovedDrafts(3);
+            const pastResponses = await getApprovedDrafts(5);
 
             const res = await fetch("/api/generate", {
                 method: "POST",
@@ -265,7 +278,13 @@ export function Dashboard() {
                     pastResponses,
                     mode: isRefine ? "refine" : "create",
                     currentDraft: isRefine ? generatedDraft : undefined,
-                    instructions: isRefine ? refineInstructions : undefined
+                    instructions: isRefine ? refineInstructions : undefined,
+                    clinicInfo: {
+                        reservationUrl,
+                        clinicHours,
+                        phoneNumber,
+                        commonInfo
+                    }
                 }),
             });
 
@@ -328,6 +347,11 @@ export function Dashboard() {
     const handleSavePolicy = async () => {
         localStorage.setItem("response_policy", policy)
         localStorage.setItem("response_signature", signature)
+        // Save Clinic Info
+        localStorage.setItem("clinic_reservation_url", reservationUrl)
+        localStorage.setItem("clinic_hours", clinicHours)
+        localStorage.setItem("clinic_phone", phoneNumber)
+        localStorage.setItem("clinic_common_info", commonInfo)
 
         // Also save to Firestore
         await savePolicy(policy);
@@ -677,6 +701,52 @@ export function Dashboard() {
                             </Button>
                         </div>
                         <div className="p-6 flex-1 overflow-auto flex flex-col gap-6">
+
+                            {/* Clinic Info Section */}
+                            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 flex flex-col gap-4">
+                                <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                                    🏥 クリニック情報 (AIが参照します)
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label className="mb-1 block text-sm font-medium">予約ページURL</Label>
+                                        <input
+                                            className="w-full px-3 py-2 border rounded text-sm"
+                                            value={reservationUrl}
+                                            onChange={(e) => setReservationUrl(e.target.value)}
+                                            placeholder="https://..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1 block text-sm font-medium">電話番号</Label>
+                                        <input
+                                            className="w-full px-3 py-2 border rounded text-sm"
+                                            value={phoneNumber}
+                                            onChange={(e) => setPhoneNumber(e.target.value)}
+                                            placeholder="03-xxxx-xxxx"
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <Label className="mb-1 block text-sm font-medium">診療時間</Label>
+                                        <input
+                                            className="w-full px-3 py-2 border rounded text-sm"
+                                            value={clinicHours}
+                                            onChange={(e) => setClinicHours(e.target.value)}
+                                            placeholder="月〜土 9:00-18:00 (日祝休)"
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <Label className="mb-1 block text-sm font-medium">よく案内する情報 (FAQなど)</Label>
+                                        <Textarea
+                                            className="min-h-[80px] text-sm bg-white"
+                                            value={commonInfo}
+                                            onChange={(e) => setCommonInfo(e.target.value)}
+                                            placeholder="初診は予約必須です、駐車場は3台あります...など"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <Label className="mb-2 block font-bold text-gray-700">返信ポリシー (System Prompt)</Label>
                                 <Textarea

@@ -8,7 +8,20 @@ const anthropic = new Anthropic({
 
 export async function POST(req: Request) {
     try {
-        const { inquiry, policy, pastResponses, mode, currentDraft, instructions } = await req.json();
+        const { inquiry, policy, pastResponses, mode, currentDraft, instructions, clinicInfo } = await req.json();
+
+        // Construct Clinic Info System Prompt
+        let clinicInfoPrompt = "";
+        if (clinicInfo) {
+            clinicInfoPrompt = `
+【クリニック情報】
+以下は当院の基本情報です。案内に必要であれば正確に参照してください。
+- 予約ページURL: ${clinicInfo.reservationUrl || "未設定"}
+- 診療時間: ${clinicInfo.clinicHours || "未設定"}
+- 電話番号: ${clinicInfo.phoneNumber || "未設定"}
+- その他案内: ${clinicInfo.commonInfo || "なし"}
+`;
+        }
 
         if (!inquiry && mode !== "refine") {
             return NextResponse.json(
@@ -17,7 +30,7 @@ export async function POST(req: Request) {
             );
         }
 
-        let systemPrompt = policy || `あなたは心療内科「とやさぽ」の受付・相談スタッフです。
+        let systemPrompt = (policy || `あなたは心療内科「とやさぽ」の受付・相談スタッフです。
 患者様やそのご家族からの問い合わせに対して、共感的かつ専門的な返信メールの下書きを作成してください。
 
 【指針】
@@ -26,9 +39,7 @@ export async function POST(req: Request) {
 - 予約に関する質問には、Web予約または電話での予約を案内してください。
 - 緊急性が感じられる場合（「死にたい」など）は、必要に応じて地域の救急相談窓口や救急車の利用を促す文言を含めてください。
 - 署名は含めないでください（本文のみ作成）。
-
-【入力】
-問い合わせ内容を提供します。`;
+- 簡潔で分かりやすい文章構成`) + clinicInfoPrompt;
 
         // Append Few-Shot examples if available (only for Create mode or if relevant context)
         // For refinement, we might prioritize the user's explicit instruction, but keeping examples doesn't hurt.
