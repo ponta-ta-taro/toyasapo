@@ -28,3 +28,13 @@ export interface PolicyHistory {
   version: number;
   createdAt: unknown;
 }
+
+export interface ClinicSettings {
+  policy: string;
+  signature: string;
+  reservationUrl: string;
+  clinicHours: string;
+  phoneNumber: string;
+  commonInfo: string;
+  updatedAt?: unknown;
+}

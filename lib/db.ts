@@ -1,10 +1,12 @@
 import { db } from './firebase';
-import { collection, addDoc, updateDoc, doc, query, where, orderBy, limit, getDocs, serverTimestamp } from 'firebase/firestore';
-import { Draft } from './types';
+import { collection, addDoc, updateDoc, doc, query, where, orderBy, limit, getDocs, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import { Draft, ClinicSettings } from './types';
 
 // Collection definitions
 const DRAFTS_COLLECTION = 'drafts';
 const POLICIES_COLLECTION = 'policies';
+const SETTINGS_COLLECTION = 'settings';
+const DEFAULT_SETTINGS_DOC = 'default';
 
 /**
  * Save generated draft to Firestore
@@ -87,5 +89,39 @@ export async function getApprovedDrafts(count: number = 3): Promise<Draft[]> {
     } catch (e) {
         console.error("Failed to fetch approved drafts:", e);
         return [];
+    }
+}
+
+/**
+ * Save unified settings to Firestore (overwrite/merge default doc)
+ */
+export async function saveSettings(settings: Omit<ClinicSettings, 'updatedAt'>) {
+    if (!db) return;
+    try {
+        await setDoc(doc(db, SETTINGS_COLLECTION, DEFAULT_SETTINGS_DOC), {
+            ...settings,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.error("Failed to save settings:", e);
+        throw e;
+    }
+}
+
+/**
+ * Get unified settings
+ */
+export async function getSettings(): Promise<ClinicSettings | null> {
+    if (!db) return null;
+    try {
+        const docRef = doc(db, SETTINGS_COLLECTION, DEFAULT_SETTINGS_DOC);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as ClinicSettings;
+        }
+        return null;
+    } catch (e) {
+        console.error("Failed to get settings:", e);
+        return null;
     }
 }

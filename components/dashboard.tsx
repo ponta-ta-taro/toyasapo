@@ -17,7 +17,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { saveDraft, savePolicy, getApprovedDrafts } from "@/lib/db"
+import { saveDraft, getApprovedDrafts, getSettings, saveSettings } from "@/lib/db"
 
 import { Label } from "@/components/ui/label"
 
@@ -94,22 +94,49 @@ export function Dashboard() {
         setRefineInstructions("")
     }, [selectedEmailId])
 
-    // Load policy/signature from localStorage
+    // Load settings from Firestore (with LocalStorage fallback)
     useEffect(() => {
-        const savedPolicy = localStorage.getItem("response_policy")
-        if (savedPolicy) setPolicy(savedPolicy)
+        const loadSettings = async () => {
+            try {
+                const settings = await getSettings();
+                if (settings) {
+                    setPolicy(settings.policy || DEFAULT_POLICY);
+                    setSignature(settings.signature || DEFAULT_SIGNATURE);
+                    setReservationUrl(settings.reservationUrl || "");
+                    setClinicHours(settings.clinicHours || "");
+                    setPhoneNumber(settings.phoneNumber || "");
+                    setCommonInfo(settings.commonInfo || "");
 
-        const savedSignature = localStorage.getItem("response_signature")
-        if (savedSignature) setSignature(savedSignature)
+                    // Update LocalStorage cache
+                    localStorage.setItem("response_policy", settings.policy || "");
+                    localStorage.setItem("response_signature", settings.signature || "");
+                    localStorage.setItem("clinic_reservation_url", settings.reservationUrl || "");
+                    localStorage.setItem("clinic_hours", settings.clinicHours || "");
+                    localStorage.setItem("clinic_phone", settings.phoneNumber || "");
+                    localStorage.setItem("clinic_common_info", settings.commonInfo || "");
+                    return;
+                }
+            } catch (error) {
+                console.error("Firestore load failed, using local storage", error);
+            }
+
+            // Fallback to LocalStorage
+            const savedPolicy = localStorage.getItem("response_policy")
+            if (savedPolicy) setPolicy(savedPolicy)
+
+            const savedSignature = localStorage.getItem("response_signature")
+            if (savedSignature) setSignature(savedSignature)
+
+            setReservationUrl(localStorage.getItem("clinic_reservation_url") || "")
+            setClinicHours(localStorage.getItem("clinic_hours") || "")
+            setPhoneNumber(localStorage.getItem("clinic_phone") || "")
+            setCommonInfo(localStorage.getItem("clinic_common_info") || "")
+        };
+
+        loadSettings();
     }, [])
 
-    // Load Clinic Info from localStorage
-    useEffect(() => {
-        setReservationUrl(localStorage.getItem("clinic_reservation_url") || "")
-        setClinicHours(localStorage.getItem("clinic_hours") || "")
-        setPhoneNumber(localStorage.getItem("clinic_phone") || "")
-        setCommonInfo(localStorage.getItem("clinic_common_info") || "")
-    }, [])
+
 
     // Load cached classifications on email load
     useEffect(() => {
@@ -345,18 +372,30 @@ export function Dashboard() {
     };
 
     const handleSavePolicy = async () => {
+        // 1. Save to LocalStorage (Immediate feedback & Fallback)
         localStorage.setItem("response_policy", policy)
         localStorage.setItem("response_signature", signature)
-        // Save Clinic Info
         localStorage.setItem("clinic_reservation_url", reservationUrl)
         localStorage.setItem("clinic_hours", clinicHours)
         localStorage.setItem("clinic_phone", phoneNumber)
         localStorage.setItem("clinic_common_info", commonInfo)
 
-        // Also save to Firestore
-        await savePolicy(policy);
+        // 2. Save to Firestore (Shared)
+        try {
+            await saveSettings({
+                policy,
+                signature,
+                reservationUrl,
+                clinicHours,
+                phoneNumber,
+                commonInfo
+            });
+            toast.success("設定を保存・共有しました")
+        } catch (e) {
+            console.error(e)
+            toast.warning("設定は保存されましたが、共有に失敗しました")
+        }
 
-        toast.success("設定を保存しました")
         setIsPolicyModalOpen(false)
     }
 
