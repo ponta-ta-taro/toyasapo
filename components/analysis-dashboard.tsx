@@ -16,8 +16,6 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog"
-import ReactWordcloud from "react-wordcloud";
-import TinySegmenter from "tiny-segmenter";
 import {
     Table,
     TableBody,
@@ -43,14 +41,54 @@ import {
 } from "recharts"
 import { BarChart3 } from "lucide-react"
 
+// 日本語を簡易的に分割（2文字以上のひらがな・カタカナ・漢字の連続を抽出）
+const extractWords = (text: string): string[] => {
+    const matches = text.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,}/g);
+    return matches || [];
+};
+
+// 頻出単語を大きさと色を変えて表示するシンプルな実装
+const WordCloud = ({ words }: { words: { text: string; value: number }[] }) => {
+    const maxValue = Math.max(...words.map(w => w.value), 1);
+
+    return (
+        <div className="flex flex-wrap gap-2 justify-center items-center p-4">
+            {words.map((word, index) => {
+                const size = Math.max(12, Math.min(36, (word.value / maxValue) * 36));
+                const colors = ['text-blue-600', 'text-teal-600', 'text-purple-600', 'text-orange-600', 'text-pink-600'];
+                return (
+                    <span
+                        key={index}
+                        className={`${colors[index % colors.length]} font-medium`}
+                        style={{ fontSize: `${size}px` }}
+                    >
+                        {word.text}
+                    </span>
+                );
+            })}
+        </div>
+    );
+};
+
 const STOP_WORDS = new Set([
-    "の", "は", "が", "を", "に", "で", "と", "も", "や", "て", "へ", "から", "まで",
-    "です", "ます", "した", "ている", "ない", "ある", "する", "だ", "た", "れる", "られる",
-    "こと", "もの", "ため", "よう", "それ", "これ", "あれ", "ん", "の",
-    "私", "僕", "自分", "さん", "様", "殿", "お客様",
-    "相談", "連絡", "確認", "お願い", "申し訳", "ござい", "ありがとう", "存じ", "致し",
-    "について", "つきまして", "お", "ご",
-    ".", "、", "。", "\n", " ", "　", "!", "?", "！", "？"
+    // 助詞
+    "の", "は", "が", "を", "に", "で", "と", "も", "や", "か", "へ", "より", "から", "まで", "など", "って", "ね", "よ", "わ", "な",
+    // 助動詞・活用形
+    "です", "ます", "でした", "ました", "ません", "ない", "なかっ", "まし", "でしょ", "だろう", "たい", "たく", "たかっ", "れる", "られる", "せる", "させる", "だ", "た",
+    // 動詞（一般的すぎるもの）
+    "いる", "ある", "する", "なる", "できる", "いく", "くる", "おる", "みる", "いう", "思う", "思い", "考え", "知り", "知っ",
+    // 形容詞（一般的すぎるもの）
+    "いい", "よい", "良い", "多い", "少ない", "大きい", "小さい",
+    // 副詞・接続詞
+    "とても", "かなり", "すごく", "また", "そして", "しかし", "ただ", "もし", "まだ", "もう", "よく", "あまり", "ちょっと",
+    // 一般的すぎる名詞・代名詞
+    "こと", "もの", "ため", "よう", "ところ", "とき", "方", "人", "私", "僕", "自分", "今", "後", "前", "中", "上", "下", "件", "点", "旨", "等", "それ", "これ", "あれ", "ん", "お客様",
+    // 敬語表現
+    "お", "ご", "いただき", "くださり", "致し", "申し", "存じ", "頂き", "下さい", "ください", "いたし", "ござい", "ありがとう", "存じ",
+    // 接頭辞・接尾辞・記号
+    "さん", "様", "殿", "氏", "的", "性", "化", "・", "、", "。", "?", "！", "...", "？", "!", "\n", " ", "　",
+    // メール特有
+    "メール", "アドレス", "問い合わせ", "問合せ", "連絡", "返信", "送信", "受信", "件名", "宛先", "相談", "お願い", "申し訳"
 ]);
 
 interface AnalysisDashboardProps {
@@ -105,17 +143,15 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
     }, [emails, dateRange, customStartDate, customEndDate]);
 
     const wordCloudData = useMemo(() => {
-        const segmenter = new TinySegmenter();
         const counts: Record<string, number> = {};
 
         filteredEmails.forEach(email => {
             if (!email.inquiry) return;
-            const segments = segmenter.segment(email.inquiry);
+            const segments = extractWords(email.inquiry);
 
-            segments.forEach(seg => {
-                const word = seg.trim();
-                // Filter: Length > 1 and not in STOP_WORDS and not a number
-                if (word.length > 1 && !STOP_WORDS.has(word) && isNaN(Number(word))) {
+            segments.forEach(word => {
+                // Filter: not in STOP_WORDS (Regex ensures length >= 2)
+                if (!STOP_WORDS.has(word)) {
                     counts[word] = (counts[word] || 0) + 1;
                 }
             });
@@ -125,7 +161,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
         return Object.entries(counts)
             .map(([text, value]) => ({ text, value }))
             .sort((a, b) => b.value - a.value)
-            .slice(0, 70); // Limit to top 70 words for visualization
+            .slice(0, 50); // Limit to top 50 words for visualization
     }, [filteredEmails]);
 
     const topKeywords = useMemo(() => {
@@ -319,17 +355,8 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                             {/* Word Cloud */}
                             <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                                 <h3 className="text-lg font-bold mb-4">よくある問い合わせキーワード</h3>
-                                <div className="w-full h-[400px]">
-                                    <ReactWordcloud
-                                        words={wordCloudData}
-                                        options={{
-                                            rotations: 2,
-                                            rotationAngles: [-90, 0],
-                                            fontSizes: [12, 60],
-                                            deterministic: true,
-                                            enableTooltip: true,
-                                        }}
-                                    />
+                                <div className="w-full min-h-[300px] flex items-center justify-center">
+                                    <WordCloud words={wordCloudData} />
                                 </div>
                             </div>
 
