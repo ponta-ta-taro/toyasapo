@@ -101,16 +101,27 @@ export async function getLearningData(): Promise<Draft[]> {
     if (!db) return [];
 
     try {
+        console.log("Fetching learning data...");
         const q = query(
             collection(db, DRAFTS_COLLECTION),
-            where("isApproved", "==", true),
-            orderBy("createdAt", "desc")
+            where("isApproved", "==", true)
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
+        console.log("Learning data count:", snapshot.size);
+
+        const docs = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as Draft));
+
+        // Client-side sort to avoid composite index requirement
+        return docs.sort((a, b) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const timeA = (a.createdAt as any)?.seconds || 0;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const timeB = (b.createdAt as any)?.seconds || 0;
+            return timeB - timeA;
+        });
     } catch (e) {
         console.error("Failed to fetch learning data:", e);
         return [];

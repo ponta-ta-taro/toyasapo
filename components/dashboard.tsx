@@ -840,7 +840,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             <div className="flex flex-col gap-4">
                                 <div className="flex-1 flex flex-col">
                                     <div className="p-3 bg-teal-600 rounded-t-lg shadow-md flex justify-between items-center">
-                                        <h3 className="text-white font-bold flex items-center gap-2 text-lg">
+                                        <h3 className="text-white font-bold flex items-center gap-2 text-lg whitespace-nowrap">
                                             <Settings className="w-6 h-6" /> 返信下書き
                                         </h3>
                                         <div className="flex gap-2">
@@ -851,7 +851,8 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                 disabled={isGenerating || !isReadyToGenerate}
                                             >
                                                 {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                                                AI生成
+                                                <span className="hidden lg:inline">AI生成</span>
+                                                <span className="lg:hidden">生成</span>
                                             </Button>
                                             <Button
                                                 size="sm"
@@ -859,7 +860,8 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                 onClick={handleCopy}
                                                 disabled={!generatedDraft}
                                             >
-                                                <Copy className="w-4 h-4 mr-1" /> コピー
+                                                <Copy className="w-4 h-4 mr-1" />
+                                                <span className="hidden xl:inline">コピー</span>
                                             </Button>
                                             <Button
                                                 size="sm"
@@ -868,7 +870,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                 disabled={!generatedDraft || isDraftSaved}
                                             >
                                                 {isDraftSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4 mr-1" />}
-                                                学習用に保存
+                                                <span className="hidden xl:inline">学習用に保存</span>
                                             </Button>
                                         </div>
                                     </div>
