@@ -341,20 +341,31 @@ export async function deleteTemplate(id: string) {
 /**
  * Get unprocessed Gmail imports
  */
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getGmailImports(): Promise<GmailImport[]> {
     if (!db) return [];
     try {
+        console.log("Fetching Gmail imports...");
         const q = query(
             collection(db, GMAIL_IMPORTS_COLLECTION),
-            where("isProcessed", "==", false),
-            orderBy("receivedAt", "asc")
+            where("isProcessed", "==", false)
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
+        console.log("Gmail imports found:", snapshot.size);
+
+        const docs = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as GmailImport));
+
+        // Client-side sort
+        return docs.sort((a, b) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const timeA = (a.receivedAt as any)?.seconds || 0;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const timeB = (b.receivedAt as any)?.seconds || 0;
+            return timeA - timeB; // asc
+        });
     } catch (e) {
         console.error("Failed to get gmail imports:", e);
         return [];
