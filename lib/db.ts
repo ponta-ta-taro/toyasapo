@@ -71,7 +71,7 @@ export async function savePolicy(content: string) {
 }
 
 /**
- * Get latest approved drafts for few-shot learning
+ * Get approved drafts for Few-Shot (limit count)
  */
 export async function getApprovedDrafts(count: number = 3): Promise<Draft[]> {
     if (!db) return [];
@@ -91,6 +91,43 @@ export async function getApprovedDrafts(count: number = 3): Promise<Draft[]> {
     } catch (e) {
         console.error("Failed to fetch approved drafts:", e);
         return [];
+    }
+}
+
+/**
+ * Get ALL approved drafts for Learning Data Manager
+ */
+export async function getLearningData(): Promise<Draft[]> {
+    if (!db) return [];
+
+    try {
+        const q = query(
+            collection(db, DRAFTS_COLLECTION),
+            where("isApproved", "==", true),
+            orderBy("createdAt", "desc")
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Draft));
+    } catch (e) {
+        console.error("Failed to fetch learning data:", e);
+        return [];
+    }
+}
+
+/**
+ * Delete draft (Learning Data)
+ */
+export async function deleteDraft(id: string) {
+    if (!db) return;
+    try {
+        const docRef = doc(db, DRAFTS_COLLECTION, id);
+        await deleteDoc(docRef);
+    } catch (e) {
+        console.error("Failed to delete draft:", e);
+        throw e;
     }
 }
 

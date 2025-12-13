@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
+import { LearningDataManager } from "@/components/learning-data-manager"
 import { AnalysisDashboard } from "@/components/analysis-dashboard"
 
 import { Label } from "@/components/ui/label"
@@ -99,6 +100,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     // Template State
     const [templates, setTemplates] = useState<Template[]>([])
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+    const [isLearningDataManagerOpen, setIsLearningDataManagerOpen] = useState(false)
 
     // Analysis State
     const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false)
@@ -600,6 +602,13 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             <span>分析</span>
                         </Button>
                         <Button
+                            onClick={() => setIsLearningDataManagerOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white border-0 shadow-md"
+                        >
+                            <BookOpen className="w-4 h-4" />
+                            <span>学習データ管理</span>
+                        </Button>
+                        <Button
                             onClick={() => setIsPolicyModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white border-0 shadow-md"
                         >
@@ -740,19 +749,19 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <span className="text-gray-500 text-xs font-mono">{formatListDate(email.datetime)}</span>
-                                                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border", pStyles.bg, pStyles.text, pStyles.border)}>
+                                                    <span className="text-gray-500 text-sm font-mono">{formatListDate(email.datetime)}</span>
+                                                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-sm border", pStyles.bg, pStyles.text, pStyles.border)}>
                                                         優先度: {pStyles.label}
                                                     </span>
                                                 </div>
 
-                                                <div className={cn("mb-2 text-sm font-bold truncate", isSelected ? "text-gray-900" : "text-gray-800")}>
+                                                <div className={cn("mb-2 text-base font-bold truncate", isSelected ? "text-gray-900" : "text-gray-800")}>
                                                     {email.inquiry.slice(0, 30) || "件名なし"}...
                                                 </div>
 
                                                 <div className="flex items-center gap-2">
                                                     {email.classification?.category && (
-                                                        <span className="inline-block px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md text-xs border border-blue-200">
+                                                        <span className="inline-block px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md text-sm border border-blue-200">
                                                             {email.classification.category}
                                                         </span>
                                                     )}
@@ -783,20 +792,20 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                 {/* Header Info */}
                                 <div className="p-6 bg-white border-2 border-gray-200 rounded-lg shadow-sm">
                                     {isManualInput ? (
-                                        <div className="text-gray-500 font-bold">新規作成モード</div>
+                                        <div className="text-gray-500 font-bold text-lg">新規作成モード</div>
                                     ) : (
                                         <>
                                             <div className="flex justify-between items-start mb-2">
-                                                <h2 className="text-xl font-bold text-gray-900">{selectedEmail?.classification?.category || "未分類"} に関する問い合わせ</h2>
+                                                <h2 className="text-2xl font-bold text-gray-900">{selectedEmail?.classification?.category || "未分類"} に関する問い合わせ</h2>
                                                 <div className="flex gap-2">
                                                     {selectedEmail?.classification?.priority === 5 && (
-                                                        <span className="px-3 py-1 bg-red-100 text-red-700 border border-red-200 rounded-full text-sm font-bold flex items-center gap-1">
+                                                        <span className="px-3 py-1 bg-red-100 text-red-700 border border-red-200 rounded-full text-base font-bold flex items-center gap-1">
                                                             <Loader2 className="w-4 h-4 text-red-600 animate-pulse" /> 重要
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="text-sm text-gray-500 flex gap-4">
+                                            <div className="text-base text-gray-500 flex gap-4">
                                                 <span>{selectedEmail?.datetime}</span>
                                             </div>
                                         </>
@@ -806,20 +815,20 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                 {/* Inquiry Body */}
                                 <div className="flex-1 flex flex-col">
                                     <div className="p-3 bg-blue-500 rounded-t-lg shadow-md">
-                                        <h3 className="text-white font-bold flex items-center gap-2">
-                                            <BookOpen className="w-5 h-5" /> 問い合わせ内容
+                                        <h3 className="text-white font-bold flex items-center gap-2 text-lg">
+                                            <BookOpen className="w-6 h-6" /> 問い合わせ内容
                                         </h3>
                                     </div>
                                     <div className="flex-1 bg-white border-x-2 border-b-2 border-blue-300 rounded-b-lg p-6 shadow-sm">
                                         {isManualInput ? (
                                             <Textarea
-                                                className="w-full h-full min-h-[400px] resize-none border-0 text-base leading-relaxed focus-visible:ring-0 p-0"
+                                                className="w-full h-full min-h-[400px] resize-none border-0 text-lg leading-relaxed focus-visible:ring-0 p-0"
                                                 placeholder="ここに問い合わせ内容を入力または貼り付けてください..."
                                                 value={manualInquiry}
                                                 onChange={(e) => setManualInquiry(e.target.value)}
                                             />
                                         ) : (
-                                            <p className="text-gray-800 leading-relaxed whitespace-pre-wrap text-base">
+                                            <p className="text-gray-800 leading-relaxed whitespace-pre-wrap text-lg">
                                                 {selectedEmail?.inquiry}
                                             </p>
                                         )}
@@ -831,13 +840,13 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             <div className="flex flex-col gap-4">
                                 <div className="flex-1 flex flex-col">
                                     <div className="p-3 bg-teal-600 rounded-t-lg shadow-md flex justify-between items-center">
-                                        <h3 className="text-white font-bold flex items-center gap-2">
-                                            <Settings className="w-5 h-5" /> 返信下書き
+                                        <h3 className="text-white font-bold flex items-center gap-2 text-lg">
+                                            <Settings className="w-6 h-6" /> 返信下書き
                                         </h3>
                                         <div className="flex gap-2">
                                             <Button
                                                 size="sm"
-                                                className="bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm h-8 px-3"
+                                                className="bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm h-9 px-4 text-base"
                                                 onClick={() => handleGenerate(false)}
                                                 disabled={isGenerating || !isReadyToGenerate}
                                             >
@@ -846,7 +855,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                className="bg-slate-600 hover:bg-slate-700 text-white border-none shadow-sm h-8 px-3"
+                                                className="bg-slate-600 hover:bg-slate-700 text-white border-none shadow-sm h-9 px-4 text-base"
                                                 onClick={handleCopy}
                                                 disabled={!generatedDraft}
                                             >
@@ -854,7 +863,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                className="bg-teal-700 hover:bg-teal-800 text-white border-none shadow-sm h-8 px-3"
+                                                className="bg-teal-700 hover:bg-teal-800 text-white border-none shadow-sm h-9 px-4 text-base"
                                                 onClick={handleSaveToTraining}
                                                 disabled={!generatedDraft || isDraftSaved}
                                             >
@@ -879,17 +888,17 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                 <div className="p-4 bg-slate-50 border-t border-gray-200">
                                                     <div className="flex gap-2">
                                                         <Textarea
-                                                            className="flex-1 min-h-[40px] h-[40px] resize-none py-2 px-3 text-sm bg-white border-gray-300"
+                                                            className="flex-1 min-h-[44px] h-[44px] resize-none py-2 px-3 text-base bg-white border-gray-300"
                                                             placeholder="追加指示（例：もっと丁寧に、URLを追記して...）"
                                                             value={refineInstructions}
                                                             onChange={(e) => setRefineInstructions(e.target.value)}
                                                         />
                                                         <Button
-                                                            className="bg-slate-700 hover:bg-slate-800 text-white shrink-0"
+                                                            className="bg-slate-700 hover:bg-slate-800 text-white shrink-0 text-base h-[44px]"
                                                             onClick={() => handleGenerate(true)}
                                                             disabled={isGenerating || !refineInstructions.trim()}
                                                         >
-                                                            <RefreshCw className="w-4 h-4 mr-1" /> 再生成
+                                                            <RefreshCw className="w-5 h-5 mr-1" /> 再生成
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -1066,6 +1075,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             </div>
             {/* Template Manager Modal */}
             <TemplateManager isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} />
+
+            {/* Learning Data Manager Modal */}
+            <LearningDataManager isOpen={isLearningDataManagerOpen} onClose={() => setIsLearningDataManagerOpen(false)} />
 
             {/* Analysis Dashboard Modal */}
             <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />

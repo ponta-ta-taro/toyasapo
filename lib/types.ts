@@ -36,6 +36,7 @@ export interface ClinicSettings {
   clinicHours: string;
   phoneNumber: string;
   commonInfo: string;
+  templateCategories?: string[];
   updatedAt?: unknown;
 }
 
