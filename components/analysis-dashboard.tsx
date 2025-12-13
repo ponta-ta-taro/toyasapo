@@ -92,6 +92,11 @@ const STOP_WORDS = new Set([
     "名前削除", "このメールは", "お問い合わせフォームから送信されました", "ご担当の方は本文のメールアドレスまたはお電話番号にご対応をお願いします",
     "よろしくお願いします", "よろしくお願いいたします", "お世話になっております", "いつもお世話になっております", "お忙しいところ恐れ入りますが",
     "申し訳ありません", "ありがとうございます",
+    // 挨拶・定型文（追加分）
+    "現在", "はじめまして", "初めまして", "宜しくお願い致します", "よろしくお願い致します", "宜しくお願いします", "お世話になります",
+    "本日", "先日", "明日", "削除", "こちらでは", "当方", "あと", "可能でしたら",
+    // 一般的すぎる表現（追加分）
+    "診察券番号", "こんにちは", "と申します", "ですが", "なお", "真緒です", "むしろ", "御机下", "アクセスした次第です", "相談がありまして",
     // 署名・フッター関連
     "新藤雅延先生", "有限会社", "事業部", "番地"
 ]);
@@ -364,7 +369,28 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
 
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Priority Chart (New) */}
+
+                        {/* 1. Category Chart */}
+                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center lg:col-span-2">
+                            <h3 className="text-lg font-bold mb-4 w-full text-left">カテゴリ別件数</h3>
+                            <div className="w-full h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={categoryData} layout="vertical" margin={{ left: 20 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis type="number" />
+                                        <YAxis dataKey="name" type="category" width={80} />
+                                        <Tooltip />
+                                        <Bar dataKey="value" fill="#8884d8" name="件数">
+                                            {categoryData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* 2. Priority Chart */}
                         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center">
                             <h3 className="text-lg font-bold mb-4 w-full text-left">優先度別件数</h3>
                             <div className="w-full h-[300px]">
@@ -391,27 +417,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                             </div>
                         </div>
 
-                        {/* Category Chart */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center lg:col-span-2">
-                            <h3 className="text-lg font-bold mb-4 w-full text-left">カテゴリ別件数</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={categoryData} layout="vertical" margin={{ left: 20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" />
-                                        <YAxis dataKey="name" type="category" width={80} />
-                                        <Tooltip />
-                                        <Bar dataKey="value" fill="#8884d8" name="件数">
-                                            {categoryData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* Month Chart */}
+                        {/* 3. Month Chart */}
                         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 lg:col-span-3">
                             <h3 className="text-lg font-bold mb-4">月別推移</h3>
                             <div className="w-full h-[300px]">
@@ -428,11 +434,91 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                             </div>
                         </div>
 
-                        {/* Keyword Analysis Section */}
+                        {/* 4. Time Chart */}
+                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold mb-4">時間帯別件数</h3>
+                            <div className="w-full h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={timeData}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="name" />
+                                        <YAxis />
+                                        <Tooltip />
+                                        <Bar dataKey="value" fill="#82ca9d" name="件数" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* 5. Day Chart */}
+                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold mb-4">曜日別件数</h3>
+                            <div className="w-full h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={dayData}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="name" />
+                                        <YAxis />
+                                        <Tooltip />
+                                        <Bar dataKey="value" fill="#8884d8" name="件数" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Spacer for grid alignment if needed */}
+                        <div className="hidden lg:block lg:col-span-1"></div>
+
+
+                        {/* 6. Category Keyword Analysis Section (New Position) */}
+                        <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold mb-6">問い合わせ傾向分析</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {(Object.keys(KEYWORD_DICTIONARIES) as (keyof typeof KEYWORD_DICTIONARIES)[]).map((key) => (
+                                    <div key={key} className="flex flex-col">
+                                        <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: KEYWORD_DICTIONARIES[key].color }}>
+                                            {KEYWORD_DICTIONARIES[key].label}
+                                        </h4>
+                                        <div className="w-full h-[250px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart
+                                                    data={categoryAnalysisData[key]}
+                                                    layout="vertical"
+                                                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                                                >
+                                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                    <XAxis type="number" hide />
+                                                    <YAxis
+                                                        dataKey="name"
+                                                        type="category"
+                                                        width={90}
+                                                        tick={{ fontSize: 12 }}
+                                                        interval={0}
+                                                    />
+                                                    <Tooltip
+                                                        contentStyle={{ borderRadius: '8px' }}
+                                                        cursor={{ fill: 'transparent' }}
+                                                    />
+                                                    <Bar
+                                                        dataKey="value"
+                                                        fill={KEYWORD_DICTIONARIES[key].color}
+                                                        radius={[0, 4, 4, 0]}
+                                                        barSize={20}
+                                                        label={{ position: 'right', fill: '#666', fontSize: 12 }}
+                                                    />
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 7. Keyword Analysis Section (Word Cloud) - Moved to bottom */}
                         <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Word Cloud */}
                             <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                                <h3 className="text-lg font-bold mb-4">よくある問い合わせキーワード</h3>
+                                <h3 className="text-lg font-bold mb-4">参考：キーワード分析（精度向上中）</h3>
                                 <div className="w-full min-h-[300px] flex items-center justify-center">
                                     <WordCloud words={wordCloudData} />
                                 </div>
@@ -495,81 +581,6 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                             </div>
                         </div>
 
-                        {/* Category Keyword Analysis Section */}
-                        <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold mb-6">問い合わせ傾向分析</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {(Object.keys(KEYWORD_DICTIONARIES) as (keyof typeof KEYWORD_DICTIONARIES)[]).map((key) => (
-                                    <div key={key} className="flex flex-col">
-                                        <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: KEYWORD_DICTIONARIES[key].color }}>
-                                            {KEYWORD_DICTIONARIES[key].label}
-                                        </h4>
-                                        <div className="w-full h-[250px]">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart
-                                                    data={categoryAnalysisData[key]}
-                                                    layout="vertical"
-                                                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-                                                >
-                                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                                                    <XAxis type="number" hide />
-                                                    <YAxis
-                                                        dataKey="name"
-                                                        type="category"
-                                                        width={90}
-                                                        tick={{ fontSize: 12 }}
-                                                        interval={0}
-                                                    />
-                                                    <Tooltip
-                                                        contentStyle={{ borderRadius: '8px' }}
-                                                        cursor={{ fill: 'transparent' }}
-                                                    />
-                                                    <Bar
-                                                        dataKey="value"
-                                                        fill={KEYWORD_DICTIONARIES[key].color}
-                                                        radius={[0, 4, 4, 0]}
-                                                        barSize={20}
-                                                        label={{ position: 'right', fill: '#666', fontSize: 12 }}
-                                                    />
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Time Chart */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold mb-4">時間帯別件数</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={timeData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="value" fill="#82ca9d" name="件数" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* Day Chart */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold mb-4">曜日別件数</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={dayData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="value" fill="#8884d8" name="件数" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </DialogContent>
