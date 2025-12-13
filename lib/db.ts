@@ -263,14 +263,19 @@ export async function getEmails(): Promise<Email[]> {
 /**
  * Update single email (for classification)
  */
-export async function updateEmail(email: Email) {
+/**
+ * Update single email
+ */
+export async function updateEmail(id: string, updates: Partial<Email>) {
     if (!db) return;
 
     try {
-        const docRef = doc(db, EMAILS_COLLECTION, email.id);
-        // Only update specific fields to be safe, or set entire object
+        const docRef = doc(db, EMAILS_COLLECTION, id);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _, ...dataToUpdate } = updates; // Avoid saving ID field
+
         await updateDoc(docRef, {
-            classification: email.classification,
+            ...dataToUpdate,
             updatedAt: serverTimestamp()
         });
     } catch (e) {

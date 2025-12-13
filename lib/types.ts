@@ -11,6 +11,7 @@ export interface Email {
   response: string;
   classification?: Classification;
   source?: 'csv' | 'manual' | 'gmail';
+  isProcessed?: boolean; // True if replied or manually marked
 }
 
 export interface Draft {

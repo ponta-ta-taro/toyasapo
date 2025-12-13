@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, RefreshCw, Mail } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, RefreshCw, Mail, Search, SortDesc } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import {
@@ -16,6 +16,9 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuCheckboxItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
@@ -81,8 +84,6 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     // Classification State
     const [isClassifying, setIsClassifying] = useState(false)
     const [classificationProgress, setClassificationProgress] = useState<{ current: number, total: number } | null>(null)
-    const [filterCategory, setFilterCategory] = useState<string | null>(null)
-    const [isSortingByPriority, setIsSortingByPriority] = useState(false)
 
     // Firebase / Approval State
 
@@ -101,6 +102,15 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     const [templates, setTemplates] = useState<Template[]>([])
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
     const [isLearningDataManagerOpen, setIsLearningDataManagerOpen] = useState(false)
+
+    // --- Search & Filter State ---
+    const [searchQuery, setSearchQuery] = useState("")
+    const [sortOption, setSortOption] = useState<'date-desc' | 'date-asc' | 'priority-desc' | 'priority-asc'>('date-desc')
+    const [filterCategories, setFilterCategories] = useState<string[]>([])
+    const [filterPriorities, setFilterPriorities] = useState<number[]>([])
+    const [filterDateRange, setFilterDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
+    const [filterNewOnly, setFilterNewOnly] = useState(false)
+
 
     // Analysis State
     const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false)
@@ -357,7 +367,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 newEmails[i] = { ...email, classification: cachedData[hash] };
                 // Also update Firestore if it was just loaded from cache but not in DB? 
                 // Ideally we update DB.
-                await updateEmail(newEmails[i]);
+                if (email.id) {
+                    updateEmail(email.id, { classification: cachedData[hash] });
+                }
 
                 setClassificationProgress({ current: i + 1, total: emails.length });
                 continue;
@@ -376,7 +388,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     cachedData[hash] = classification;
 
                     // Save to Firestore immediately
-                    await updateEmail(newEmails[i]);
+                    if (newEmails[i].id) {
+                        updateEmail(newEmails[i].id, { classification });
+                    }
 
                 } else {
                     console.error(`Failed to classify email index ${i}`);
@@ -472,6 +486,14 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             ;
 
             toast.success(isRefine ? "返信を再生成しました" : "返信下書きを生成しました");
+
+            // Mark as processed if it's a new Gmail import
+            if (selectedEmailId && selectedEmail?.source === 'gmail' && !selectedEmail.isProcessed) {
+                // Update local
+                setEmails(prev => prev.map(e => e.id === selectedEmailId ? { ...e, isProcessed: true } : e));
+                // Update DB
+                updateEmail(selectedEmailId, { isProcessed: true }).catch(err => console.error("Failed to mark processed", err));
+            }
         } catch (error) {
             console.error(error);
             toast.error("生成に失敗しました");
@@ -566,7 +588,8 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     datetime: datetimeStr,
                     inquiry: inquiryContent,
                     response: "",
-                    source: 'gmail'
+                    source: 'gmail',
+                    isProcessed: false
                 };
             });
 
@@ -591,39 +614,98 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     };
 
     // Format date for display: MM/DD HH:mm
-    const formatListDate = (dateStr: string) => {
+
+
+
+
+    // Relative date helper
+    const formatRelativeDate = (dateStr: string) => {
         try {
-            const d = new Date(dateStr)
-            if (isNaN(d.getTime())) return dateStr
-            const month = (d.getMonth() + 1).toString().padStart(2, '0')
-            const day = d.getDate().toString().padStart(2, '0')
-            const hours = d.getHours().toString().padStart(2, '0')
-            const mins = d.getMinutes().toString().padStart(2, '0')
-            return `${month}/${day} ${hours}:${mins}`
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+            const diffTime = today.getTime() - target.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+
+            if (diffDays === 0) return `今日 ${timeStr}`;
+            if (diffDays === 1) return `昨日 ${timeStr}`;
+            if (diffDays >= 2 && diffDays <= 7) return `${diffDays}日前`;
+
+            return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
         } catch {
-            return dateStr
+            return dateStr;
         }
-    }
+    };
 
-
-
-    const derivedEmails = useMemo(() => {
+    const filteredEmails = useMemo(() => {
         let result = [...emails];
 
-        if (filterCategory) {
-            result = result.filter(e => e.classification?.category === filterCategory);
+        // 1. Search
+        if (searchQuery) {
+            const lowerQ = searchQuery.toLowerCase();
+            result = result.filter(e => e.inquiry.toLowerCase().includes(lowerQ));
         }
 
-        if (isSortingByPriority) {
-            result.sort((a, b) => {
-                const pA = a.classification?.priority || 0;
-                const pB = b.classification?.priority || 0;
-                return pB - pA;
+        // 2. Filter: Categories
+        if (filterCategories.length > 0) {
+            result = result.filter(e => e.classification?.category && filterCategories.includes(e.classification.category));
+        }
+
+        // 3. Filter: Priorities
+        if (filterPriorities.length > 0) {
+            result = result.filter(e => e.classification?.priority && filterPriorities.includes(e.classification.priority));
+        }
+
+        // 4. Filter: Date Range
+        if (filterDateRange !== 'all') {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            result = result.filter(e => {
+                const d = new Date(e.datetime);
+                if (isNaN(d.getTime())) return false;
+                const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const diffTime = today.getTime() - target.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                if (filterDateRange === 'today') return diffDays === 0;
+                if (filterDateRange === 'week') return diffDays <= 7;
+                if (filterDateRange === 'month') return diffDays <= 30;
+                return true;
             });
         }
 
+        // 5. Filter: New Only
+        if (filterNewOnly) {
+            result = result.filter(e => e.source === 'gmail' && !e.isProcessed);
+        }
+
+        // 6. Sort
+        result.sort((a, b) => {
+            const dateA = new Date(a.datetime).getTime();
+            const dateB = new Date(b.datetime).getTime();
+            const prioA = a.classification?.priority || 0;
+            const prioB = b.classification?.priority || 0;
+
+            switch (sortOption) {
+                case 'date-desc': return dateB - dateA;
+                case 'date-asc': return dateA - dateB;
+                case 'priority-desc': return prioB - prioA;
+                case 'priority-asc': return prioA - prioB;
+                default: return 0;
+            }
+        });
+
         return result;
-    }, [emails, filterCategory, isSortingByPriority]);
+    }, [emails, searchQuery, filterCategories, filterPriorities, filterDateRange, filterNewOnly, sortOption]);
+
+    // Alias for backward compatibility if needed, or just use filteredEmails
+    const derivedEmails = filteredEmails;
 
     const selectedEmail = emails.find(e => e.id === selectedEmailId);
 
@@ -725,42 +807,6 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             >
                                 <Plus className="mr-2 h-4 w-4" /> 新規作成
                             </Button>
-                            <Button
-                                onClick={handleClassify}
-                                disabled={emails.length === 0 || isClassifying}
-                                className={cn("flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md border-0 h-10")}
-                            >
-                                <Play className="mr-2 h-4 w-4" /> AI分類
-                            </Button>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 h-9">
-                                        <Filter className="mr-2 h-3 w-3" />
-                                        {filterCategory || "カテゴリ"}
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={() => setFilterCategory(null)}>全て</DropdownMenuItem>
-                                    {["予約", "症状相談", "書類", "料金", "クレーム", "その他"].map(cat => (
-                                        <DropdownMenuItem key={cat} onClick={() => setFilterCategory(cat)}>
-                                            {cat}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 h-9", isSortingByPriority && "bg-blue-100")}
-                                onClick={() => setIsSortingByPriority(!isSortingByPriority)}
-                            >
-                                <ArrowUpDown className="mr-2 h-3 w-3" />
-                                優先度
-                            </Button>
 
                             <input
                                 type="file"
@@ -771,12 +817,118 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             />
                             <Button
                                 variant="outline"
-                                size="sm"
-                                className="flex-1 border-blue-400 text-blue-600 hover:bg-gray-50 h-9"
+                                className="border-blue-300 text-blue-700 hover:bg-blue-50 h-10 w-10 p-0 shadow-md"
                                 onClick={() => fileInputRef.current?.click()}
+                                title="CSV取込"
                             >
-                                <Upload className="mr-2 h-3 w-3" />
-                                CSV
+                                <Upload className="h-5 w-5" />
+                            </Button>
+                        </div>
+
+                        <div className="flex gap-2">
+                            {/* Search */}
+                            <div className="relative flex-1">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                                <input
+                                    placeholder="検索..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-8 pr-2 h-10 text-sm border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm"
+                                />
+                            </div>
+
+                            {/* Sort */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-blue-300 text-blue-600 hover:bg-blue-50">
+                                        <SortDesc className="h-5 w-5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setSortOption('date-desc')}>
+                                        {sortOption === 'date-desc' && <Check className="w-4 h-4 mr-2" />}
+                                        日付 (新しい順)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortOption('date-asc')}>
+                                        {sortOption === 'date-asc' && <Check className="w-4 h-4 mr-2" />}
+                                        日付 (古い順)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortOption('priority-desc')}>
+                                        {sortOption === 'priority-desc' && <Check className="w-4 h-4 mr-2" />}
+                                        優先度 (高い順)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortOption('priority-asc')}>
+                                        {sortOption === 'priority-asc' && <Check className="w-4 h-4 mr-2" />}
+                                        優先度 (低い順)
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Filter */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="icon" className={cn("h-10 w-10 shrink-0 border-blue-300 text-blue-600 hover:bg-blue-50", (filterCategories.length > 0 || filterPriorities.length > 0 || filterDateRange !== 'all' || filterNewOnly) && "bg-blue-100 ring-2 ring-blue-300")}>
+                                        <Filter className="h-5 w-5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuLabel>絞り込み</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setFilterNewOnly(!filterNewOnly)}>
+                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", filterNewOnly ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                            <Check className={cn("h-4 w-4")} />
+                                        </div>
+                                        <span>新着（未処理）のみ</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel>日付範囲</DropdownMenuLabel>
+                                    {(['all', 'today', 'week', 'month'] as const).map((range) => (
+                                        <DropdownMenuItem key={range} onClick={() => setFilterDateRange(range)}>
+                                            {filterDateRange === range && <Check className="w-4 h-4 mr-2" />}
+                                            {range === 'all' && 'すべて'}
+                                            {range === 'today' && '今日'}
+                                            {range === 'week' && '今週'}
+                                            {range === 'month' && '今月'}
+                                        </DropdownMenuItem>
+                                    ))}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel>カテゴリ</DropdownMenuLabel>
+                                    {["予約", "症状相談", "書類", "料金", "クレーム", "その他"].map(cat => (
+                                        <DropdownMenuCheckboxItem
+                                            key={cat}
+                                            checked={filterCategories.includes(cat)}
+                                            onCheckedChange={(checked) => setFilterCategories(checked ? [...filterCategories, cat] : filterCategories.filter(c => c !== cat))}
+                                        >
+                                            {cat}
+                                        </DropdownMenuCheckboxItem>
+                                    ))}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel>優先度</DropdownMenuLabel>
+                                    <DropdownMenuCheckboxItem
+                                        checked={filterPriorities.includes(5)}
+                                        onCheckedChange={(checked) => setFilterPriorities(checked ? [...filterPriorities, 5] : filterPriorities.filter(p => p !== 5))}
+                                    >
+                                        最高 (5)
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
+                                        checked={filterPriorities.includes(4)}
+                                        onCheckedChange={(checked) => setFilterPriorities(checked ? [...filterPriorities, 4] : filterPriorities.filter(p => p !== 4))}
+                                    >
+                                        高 (4)
+                                    </DropdownMenuCheckboxItem>
+                                    {/* Add more if needed, simplistic for now */}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Classify */}
+                            <Button
+                                onClick={handleClassify}
+                                disabled={emails.length === 0 || isClassifying}
+                                size="icon"
+                                className={cn("h-10 w-10 shrink-0 bg-blue-600 hover:bg-blue-700 text-white shadow-md border-0")}
+                                title="AI分類"
+                            >
+                                <Play className="h-5 w-5" />
                             </Button>
                         </div>
                     </div>
@@ -811,12 +963,17 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-2">
+                                                    {email.source === 'gmail' && !email.isProcessed && (
+                                                        <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded-sm font-bold shadow-sm animate-pulse">
+                                                            NEW
+                                                        </span>
+                                                    )}
                                                     {email.source === 'gmail' && (
-                                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full border border-red-200 flex items-center gap-1">
+                                                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-sm border border-gray-200 flex items-center gap-1">
                                                             <Mail className="w-3 h-3" /> Gmail
                                                         </span>
                                                     )}
-                                                    <span className="text-gray-500 text-sm font-mono">{formatListDate(email.datetime)}</span>
+                                                    <span className="text-gray-500 text-sm font-mono">{formatRelativeDate(email.datetime)}</span>
                                                     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-sm border", pStyles.bg, pStyles.text, pStyles.border)}>
                                                         優先度: {pStyles.label}
                                                     </span>
