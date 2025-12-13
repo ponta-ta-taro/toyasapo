@@ -45,6 +45,41 @@ export async function toggleDraftApproval(id: string, isApproved: boolean) {
 }
 
 /**
+ * Check if draft exists by emailId
+ */
+export async function checkDraftExists(emailId: string): Promise<string | null> {
+    if (!db) return null;
+    try {
+        const q = query(collection(db, DRAFTS_COLLECTION), where("emailId", "==", emailId), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            return snapshot.docs[0].id;
+        }
+        return null;
+    } catch (e) {
+        console.error("Failed to check draft duplicate:", e);
+        return null;
+    }
+}
+
+/**
+ * Update draft (overwrite)
+ */
+export async function updateDraft(id: string, data: Partial<Draft>) {
+    if (!db) return;
+    try {
+        const docRef = doc(db, DRAFTS_COLLECTION, id);
+        await updateDoc(docRef, {
+            ...data,
+            updatedAt: serverTimestamp()
+        });
+    } catch (e) {
+        console.error("Failed to update draft:", e);
+        throw e;
+    }
+}
+
+/**
  * Save new policy version
  */
 export async function savePolicy(content: string) {

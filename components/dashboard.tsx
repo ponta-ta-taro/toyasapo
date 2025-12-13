@@ -20,7 +20,15 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed, deleteEmail, restoreEmail, hardDeleteEmail } from "@/lib/db"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed, deleteEmail, restoreEmail, hardDeleteEmail, checkDraftExists, updateDraft } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
 import { LearningDataManager } from "@/components/learning-data-manager"
 import { AnalysisDashboard } from "@/components/analysis-dashboard"
@@ -97,6 +105,11 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     // Upload Modal State
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
     const [pendingUploadEmails, setPendingUploadEmails] = useState<Email[]>([])
+
+    // Overwrite Dialog State
+    const [isOverwriteAlertOpen, setIsOverwriteAlertOpen] = useState(false)
+    const [existingDraftId, setExistingDraftId] = useState<string | null>(null)
+    const [pendingDraftData, setPendingDraftData] = useState<{ emailId: string, inquiry: string, generatedDraft: string } | null>(null)
 
     // Template State
     const [templates, setTemplates] = useState<Template[]>([])
@@ -515,20 +528,54 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
         const inquiryText = isManualInput ? manualInquiry : emails.find(e => e.id === selectedEmailId)?.inquiry || "";
         const emailDate = isManualInput ? new Date().toISOString() : emails.find(e => e.id === selectedEmailId)?.datetime || new Date().toISOString();
+        const emailId = generateEmailHash(emailDate, inquiryText);
 
-        const draftId = await saveDraft({
-            emailId: generateEmailHash(emailDate, inquiryText),
+        const dataToSave = {
+            emailId: emailId,
             inquiry: inquiryText,
             generatedDraft: generatedDraft,
+        };
+
+        // Check for duplicates
+        const existingId = await checkDraftExists(emailId);
+        if (existingId) {
+            setExistingDraftId(existingId);
+            setPendingDraftData(dataToSave);
+            setIsOverwriteAlertOpen(true);
+            return;
+        }
+
+        const draftId = await saveDraft({
+            ...dataToSave,
             isApproved: true // Direct save implies approval for learning
         });
 
         if (draftId) {
-
             setIsDraftSaved(true);
             toast.success("学習データとして保存しました");
         } else {
             toast.error("保存に失敗しました(Firebase設定を確認してください)");
+        }
+    };
+
+    const handleOverwriteDraft = async () => {
+        if (!existingDraftId || !pendingDraftData) return;
+
+        try {
+            await updateDraft(existingDraftId, {
+                inquiry: pendingDraftData.inquiry,
+                generatedDraft: pendingDraftData.generatedDraft,
+                isApproved: true
+            });
+            setIsDraftSaved(true);
+            toast.success("学習データを上書き保存しました");
+        } catch (e) {
+            console.error(e);
+            toast.error("上書き保存に失敗しました");
+        } finally {
+            setIsOverwriteAlertOpen(false);
+            setExistingDraftId(null);
+            setPendingDraftData(null);
         }
     };
 
@@ -1397,6 +1444,22 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     setTimeout(() => setIsTemplateModalOpen(true), 100) // Open template manager (slight delay for smooth transition)
                 }}
             />
+
+            {/* Overwrite Confirmation Dialog */}
+            <Dialog open={isOverwriteAlertOpen} onOpenChange={setIsOverwriteAlertOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>学習データの重複</DialogTitle>
+                        <DialogDescription>
+                            この問い合わせの学習データは既に存在します。上書きしますか？
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsOverwriteAlertOpen(false)}>キャンセル</Button>
+                        <Button onClick={handleOverwriteDraft} className="bg-blue-600 hover:bg-blue-700 text-white">上書き</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Analysis Dashboard Modal */}
             <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
