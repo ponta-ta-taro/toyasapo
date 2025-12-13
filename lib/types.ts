@@ -49,6 +49,7 @@ export interface Template {
   category: string;
   pattern: string; // The specific inquiry pattern (e.g. "First visit referral")
   response: string; // The model answer
+  source?: 'manual' | 'learning_data';
   createdAt: unknown;
 }
 

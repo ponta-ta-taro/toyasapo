@@ -38,11 +38,12 @@ import { getSettings, saveSettings } from "@/lib/db"
 interface TemplateManagerProps {
     isOpen: boolean;
     onClose: () => void;
+    initialData?: Partial<Template>;
 }
 
 const DEFAULT_CATEGORIES = ["予約", "症状相談", "書類", "料金", "クレーム", "その他"];
 
-export function TemplateManager({ isOpen, onClose }: TemplateManagerProps) {
+export function TemplateManager({ isOpen, onClose, initialData }: TemplateManagerProps) {
     const [templates, setTemplates] = useState<Template[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [filterCategory, setFilterCategory] = useState<string | "all">("all");
@@ -63,6 +64,41 @@ export function TemplateManager({ isOpen, onClose }: TemplateManagerProps) {
         pattern: "",
         response: ""
     });
+
+    // Check for initial data when opening
+    useEffect(() => {
+        if (isOpen && initialData) {
+            // Assuming these setters exist or formData should be used
+            // For now, faithfully applying the provided snippet.
+            // If `setInputCategory`, `setInputPattern`, `setInputResponse`, `setIsEditing`, `setViewMode` are not defined,
+            // this will cause a compilation error.
+            // A more robust change would be to use setFormData:
+            // setFormData({
+            //     category: initialData.category || "その他",
+            //     pattern: initialData.pattern || "",
+            //     response: initialData.response || ""
+            // });
+            // setEditingId(null); // It's a new entry based on data, not editing an existing one
+            // setIsFormOpen(true); // Open the form with initial data
+            // However, following the strict instruction to apply the code as given.
+            // The following lines are placeholders for the user's intended state variables.
+            // setInputCategory(initialData.category || "その他")
+            // setInputPattern(initialData.pattern || "")
+            // setInputResponse(initialData.response || "")
+            // setIsEditing(false) // It's a new entry based on data
+            // setEditingId(null)
+            // setViewMode('edit')
+
+            // To make it syntactically correct with existing state:
+            setFormData({
+                category: initialData.category || "その他",
+                pattern: initialData.pattern || "",
+                response: initialData.response || ""
+            });
+            setEditingId(null); // It's a new entry based on data
+            setIsFormOpen(true); // Open the form for a new entry
+        }
+    }, [isOpen, initialData])
 
     useEffect(() => {
         if (isOpen) {
@@ -197,6 +233,9 @@ export function TemplateManager({ isOpen, onClose }: TemplateManagerProps) {
                             </DialogTitle>
                             <DialogDescription className="mt-1">
                                 問い合わせパターン別の模範回答を登録し、AI生成の精度を向上させます。
+                                <span className="block mt-1">
+                                    「学習データ管理」に登録されている返信内容から模範回答に追加することもできます。
+                                </span>
                             </DialogDescription>
                         </div>
 
@@ -286,7 +325,7 @@ export function TemplateManager({ isOpen, onClose }: TemplateManagerProps) {
                                                     {t.pattern}
                                                 </TableCell>
                                                 <TableCell className="align-top pt-4">
-                                                    <div className="whitespace-pre-wrap text-sm text-gray-600 max-h-[100px] overflow-hidden group-hover:max-h-none transition-all">
+                                                    <div className="whitespace-pre-wrap text-sm text-gray-600 line-clamp-3 overflow-hidden text-ellipsis h-[4.5em]">
                                                         {t.response}
                                                     </div>
                                                 </TableCell>

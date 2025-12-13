@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Draft } from "@/lib/types"
+import { Draft, Template } from "@/lib/types"
 import { getLearningData, deleteDraft } from "@/lib/db"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { Trash2, BookOpen, Search, Eye } from "lucide-react"
+import { Trash2, BookOpen, Search, Eye, Copy } from "lucide-react"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -27,9 +27,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 interface LearningDataManagerProps {
     isOpen: boolean;
     onClose: () => void;
+    onAddToTemplate?: (data: Partial<Template>) => void;
 }
 
-export function LearningDataManager({ isOpen, onClose }: LearningDataManagerProps) {
+export function LearningDataManager({ isOpen, onClose, onAddToTemplate }: LearningDataManagerProps) {
     const [drafts, setDrafts] = useState<Draft[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -206,6 +207,37 @@ export function LearningDataManager({ isOpen, onClose }: LearningDataManagerProp
                             </div>
                         </div>
                     )}
+                    <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+                        {onAddToTemplate && selectedDraft && (
+                            <Button
+                                onClick={() => {
+                                    if (!selectedDraft) return;
+                                    onAddToTemplate({
+                                        category: "その他", // Default, user can change
+                                        pattern: "学習データからの追加",
+                                        response: selectedDraft.generatedDraft || selectedDraft.finalResponse || "",
+                                        source: 'learning_data'
+                                    });
+                                }}
+                                className="bg-teal-600 hover:bg-teal-700 text-white"
+                            >
+                                <Copy className="w-4 h-4 mr-2" />
+                                模範回答に追加
+                            </Button>
+                        )}
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                if (selectedDraft && confirm("本当に削除しますか？")) {
+                                    handleDelete(selectedDraft.id);
+                                    setSelectedDraft(null);
+                                }
+                            }}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            削除
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </>

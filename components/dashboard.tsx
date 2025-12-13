@@ -101,6 +101,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     // Template State
     const [templates, setTemplates] = useState<Template[]>([])
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+    const [templateInitialData, setTemplateInitialData] = useState<Partial<Template> | undefined>(undefined)
     const [isLearningDataManagerOpen, setIsLearningDataManagerOpen] = useState(false)
 
     // --- Search & Filter State ---
@@ -1245,6 +1246,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                     <h3 className="font-bold text-blue-800 flex items-center gap-2">
                                         🏥 クリニック情報 (AIが参照します)
                                     </h3>
+                                    <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+                                        ここに登録した情報は、AIが返信を生成する際に自動的に参照されます。例えば「予約したい」という問い合わせには予約ページURLを、「診療時間を知りたい」には診療時間を含んだ返信が生成されます。よく問い合わせがある内容を登録しておくと、正確で一貫性のある返信が作成できます。
+                                    </p>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <Label className="mb-1 block text-sm font-medium">予約ページURL</Label>
@@ -1287,6 +1291,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
                                 <div>
                                     <Label className="mb-2 block font-bold text-gray-700">返信ポリシー (System Prompt)</Label>
+                                    <p className="text-sm text-gray-500 mb-2 leading-relaxed">
+                                        ここに記載したルールに従って、AIが返信文を生成します。挨拶の仕方、結論の伝え方、共感の度合いなど、クリニックの対応方針に合わせて調整できます。
+                                    </p>
                                     <Textarea
                                         className="w-full font-mono text-sm leading-relaxed min-h-[300px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
                                         value={policy}
@@ -1296,13 +1303,15 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                 </div>
                                 <div>
                                     <Label className="mb-2 block font-bold text-gray-700">署名 (Signature)</Label>
+                                    <p className="text-sm text-gray-500 mb-2 leading-relaxed">
+                                        生成された返信の末尾に自動で追加されます。
+                                    </p>
                                     <Textarea
                                         className="w-full font-mono text-sm leading-relaxed min-h-[150px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
                                         value={signature}
                                         onChange={(e) => setSignature(e.target.value)}
                                         placeholder="署名を入力..."
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">※生成された返信の末尾に自動的に付与されます</p>
                                 </div>
                             </div>
                             <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
@@ -1369,10 +1378,25 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 )}
             </div>
             {/* Template Manager Modal */}
-            <TemplateManager isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} />
+            <TemplateManager
+                isOpen={isTemplateModalOpen}
+                onClose={() => {
+                    setIsTemplateModalOpen(false)
+                    setTemplateInitialData(undefined) // Reset on close
+                }}
+                initialData={templateInitialData}
+            />
 
             {/* Learning Data Manager Modal */}
-            <LearningDataManager isOpen={isLearningDataManagerOpen} onClose={() => setIsLearningDataManagerOpen(false)} />
+            <LearningDataManager
+                isOpen={isLearningDataManagerOpen}
+                onClose={() => setIsLearningDataManagerOpen(false)}
+                onAddToTemplate={(data) => {
+                    setTemplateInitialData(data)
+                    setIsLearningDataManagerOpen(false) // Close learning manager
+                    setTimeout(() => setIsTemplateModalOpen(true), 100) // Open template manager (slight delay for smooth transition)
+                }}
+            />
 
             {/* Analysis Dashboard Modal */}
             <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
