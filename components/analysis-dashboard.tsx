@@ -48,6 +48,7 @@ interface ColabAnalysisData {
     symptoms: AnalyzedWord[];
     concerns: AnalyzedWord[];
     inquiry_types: AnalyzedWord[];
+    bigrams_top20?: AnalyzedWord[]; // Optional in case older data doesn't have it
 }
 
 interface AnalysisDashboardProps {
@@ -532,6 +533,30 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                         </div>
                                     </div>
 
+                                    {/* Bigrams (Consultation Patterns) */}
+                                    {colabData.bigrams_top20 && colabData.bigrams_top20.length > 0 && (
+                                        <div className="border-t border-gray-100 pt-6 mt-2">
+                                            <h4 className="text-md font-bold mb-4 text-gray-700 flex items-center gap-2">
+                                                🔗 よくある相談パターン
+                                            </h4>
+                                            <div className="w-full h-[300px]">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart
+                                                        data={colabData.bigrams_top20.slice(0, 10).map(item => ({ name: item.word, value: item.count }))}
+                                                        layout="vertical"
+                                                        margin={{ left: 20 }}
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" />
+                                                        <XAxis type="number" />
+                                                        <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="value" fill="#8b5cf6" name="出現回数" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#666', fontSize: 12 }} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Top 10 Keywords (Reference) */}
                                     <div className="border-t border-gray-100 pt-6 mt-2">
                                         <h4 className="text-md font-bold mb-4 text-gray-700 flex items-center gap-2">
@@ -561,6 +586,6 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                     </div>
                 </div>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     )
 }
