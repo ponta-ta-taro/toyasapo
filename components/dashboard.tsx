@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown, BookOpen } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown, BookOpen, BarChart3 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
+import { AnalysisDashboard } from "@/components/analysis-dashboard"
 
 import { Label } from "@/components/ui/label"
 
@@ -99,6 +100,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     // Template State
     const [templates, setTemplates] = useState<Template[]>([])
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+
+    // Analysis State
+    const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false)
 
     // Reset states when switching emails
     useEffect(() => {
@@ -622,6 +626,15 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                 <Button
                                     variant="ghost"
                                     size="icon"
+                                    onClick={() => setIsAnalysisModalOpen(true)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                    title="データ分析"
+                                >
+                                    <BarChart3 className="h-6 w-6" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => setIsTemplateModalOpen(true)}
                                     className="text-gray-500 hover:text-gray-700"
                                     title="模範回答管理"
@@ -1045,6 +1058,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             </div>
             {/* Template Manager Modal */}
             <TemplateManager isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} />
+
+            {/* Analysis Dashboard Modal */}
+            <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
         </div>
     )
 }
