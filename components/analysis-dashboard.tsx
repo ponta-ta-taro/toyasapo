@@ -40,6 +40,11 @@ interface AnalyzedWord {
     count: number;
 }
 
+interface TFIDFWord {
+    word: string;
+    score: number;
+}
+
 interface ColabAnalysisData {
     updated_at: string;
     total_count: number;
@@ -49,6 +54,8 @@ interface ColabAnalysisData {
     concerns: AnalyzedWord[];
     inquiry_types: AnalyzedWord[];
     bigrams_top20?: AnalyzedWord[]; // Optional in case older data doesn't have it
+    keywords_tfidf?: TFIDFWord[];
+    cooccurrence?: Record<string, AnalyzedWord[]>;
 }
 
 interface AnalysisDashboardProps {
@@ -67,6 +74,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
     const [customEndDate, setCustomEndDate] = useState<string>("");
     const [colabData, setColabData] = useState<ColabAnalysisData | null>(null);
     const [loadingColab, setLoadingColab] = useState(false);
+    const [selectedCooccurrenceKey, setSelectedCooccurrenceKey] = useState<string>("");
 
     useEffect(() => {
         const fetchColabAnalysis = async () => {
@@ -82,7 +90,12 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                 const docRef = doc(db, 'analysis_results', 'latest');
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
-                    setColabData(docSnap.data() as ColabAnalysisData);
+                    const data = docSnap.data() as ColabAnalysisData;
+                    setColabData(data);
+                    if (data.cooccurrence) {
+                        const keys = Object.keys(data.cooccurrence);
+                        if (keys.length > 0) setSelectedCooccurrenceKey(keys[0]);
+                    }
                 } else {
                     setColabData(null);
                 }
@@ -579,6 +592,77 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                             </ResponsiveContainer>
                                         </div>
                                     </div>
+
+                                    {/* TF-IDF Analysis */}
+                                    {colabData.keywords_tfidf && colabData.keywords_tfidf.length > 0 && (
+                                        <div className="border-t border-gray-100 pt-6 mt-2">
+                                            <h4 className="text-md font-bold mb-4 text-gray-700 flex items-center gap-2">
+                                                📈 重要キーワード（TF-IDF）
+                                                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">※特徴的な単語を重視</span>
+                                            </h4>
+                                            <div className="w-full h-[300px]">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart
+                                                        data={colabData.keywords_tfidf.slice(0, 10).map(item => ({ name: item.word, value: item.score }))}
+                                                        layout="vertical"
+                                                        margin={{ left: 20 }}
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" />
+                                                        <XAxis type="number" tickFormatter={(value) => value.toFixed(2)} />
+                                                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
+                                                        <Tooltip formatter={(value: number) => value.toFixed(2)} />
+                                                        <Bar dataKey="value" fill="#14b8a6" name="スコア" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#666', fontSize: 12 }} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Co-occurrence Analysis */}
+                                    {colabData.cooccurrence && Object.keys(colabData.cooccurrence).length > 0 && (
+                                        <div className="border-t border-gray-100 pt-6 mt-2">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h4 className="text-md font-bold text-gray-700 flex items-center gap-2">
+                                                    🔍 キーワード関連分析
+                                                </h4>
+                                                <div className="w-[180px]">
+                                                    <Select
+                                                        value={selectedCooccurrenceKey}
+                                                        onValueChange={setSelectedCooccurrenceKey}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="キーワード選択" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {Object.keys(colabData.cooccurrence).map((key) => (
+                                                                <SelectItem key={key} value={key}>
+                                                                    {key}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+
+                                            {selectedCooccurrenceKey && colabData.cooccurrence[selectedCooccurrenceKey] && (
+                                                <div className="w-full h-[300px]">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart
+                                                            data={colabData.cooccurrence[selectedCooccurrenceKey].slice(0, 10).map(item => ({ name: item.word, value: item.count }))}
+                                                            layout="vertical"
+                                                            margin={{ left: 20 }}
+                                                        >
+                                                            <CartesianGrid strokeDasharray="3 3" />
+                                                            <XAxis type="number" />
+                                                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
+                                                            <Tooltip />
+                                                            <Bar dataKey="value" fill="#f97316" name="共起回数" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#666', fontSize: 12 }} />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
