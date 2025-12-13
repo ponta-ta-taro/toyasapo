@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, RefreshCw } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, RefreshCw, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import {
@@ -17,7 +17,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates } from "@/lib/db"
+import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
 import { LearningDataManager } from "@/components/learning-data-manager"
 import { AnalysisDashboard } from "@/components/analysis-dashboard"
@@ -536,6 +536,60 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         setIsPolicyModalOpen(false)
     }
 
+
+
+    const [isGmailLoading, setIsGmailLoading] = useState(false);
+    const handleImportGmail = async () => {
+        setIsGmailLoading(true);
+        try {
+            const imports = await getGmailImports();
+            if (imports.length === 0) {
+                toast.info("新着メールはありません");
+                setIsGmailLoading(false);
+                return;
+            }
+
+            const newEmails: Email[] = imports.map((item) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const recv = item.receivedAt as any;
+                const date = recv?.toDate ? recv.toDate() : new Date();
+                const datetimeStr = date.toLocaleString('ja-JP', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                });
+
+                // Combine subject and body for inquiry
+                const inquiryContent = `【件名】${item.subject || '(件名なし)'}\n\n${item.body || ''}`;
+
+                return {
+                    id: generateEmailHash(datetimeStr, inquiryContent), // Generate consistent ID
+                    datetime: datetimeStr,
+                    inquiry: inquiryContent,
+                    response: "",
+                    source: 'gmail'
+                };
+            });
+
+            // Save to emails collection
+            await saveEmails(newEmails);
+
+            // Mark as processed
+            await markGmailProcessed(imports.map((i) => i.id));
+
+            // Reload state
+            const storedEmails = await getEmails();
+            setEmails(storedEmails);
+
+            toast.success(`${newEmails.length}件のメールを取り込みました`);
+
+        } catch (e) {
+            console.error("Gmail import failed:", e);
+            toast.error("Gmail取込に失敗しました");
+        } finally {
+            setIsGmailLoading(false);
+        }
+    };
+
     // Format date for display: MM/DD HH:mm
     const formatListDate = (dateStr: string) => {
         try {
@@ -658,6 +712,14 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
                         <div className="flex gap-2">
                             <Button
+                                onClick={handleImportGmail}
+                                disabled={isGmailLoading}
+                                className={cn("flex-1 bg-white hover:bg-red-50 text-red-600 shadow-md border border-red-200 h-10")}
+                            >
+                                {isGmailLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+                                Gmail取込
+                            </Button>
+                            <Button
                                 onClick={startManualInput}
                                 className={cn("flex-1 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md border-0 h-10")}
                             >
@@ -749,6 +811,11 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-2">
+                                                    {email.source === 'gmail' && (
+                                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full border border-red-200 flex items-center gap-1">
+                                                            <Mail className="w-3 h-3" /> Gmail
+                                                        </span>
+                                                    )}
                                                     <span className="text-gray-500 text-sm font-mono">{formatListDate(email.datetime)}</span>
                                                     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-sm border", pStyles.bg, pStyles.text, pStyles.border)}>
                                                         優先度: {pStyles.label}

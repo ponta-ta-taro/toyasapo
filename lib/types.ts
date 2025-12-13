@@ -10,6 +10,7 @@ export interface Email {
   inquiry: string;
   response: string;
   classification?: Classification;
+  source?: 'csv' | 'manual' | 'gmail';
 }
 
 export interface Draft {
@@ -46,4 +47,13 @@ export interface Template {
   pattern: string; // The specific inquiry pattern (e.g. "First visit referral")
   response: string; // The model answer
   createdAt: unknown;
+}
+
+export interface GmailImport {
+  id: string;
+  subject: string;
+  body: string;
+  receivedAt: unknown;
+  from: string;
+  isProcessed: boolean;
 }

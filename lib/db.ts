@@ -1,13 +1,15 @@
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit, getDocs, serverTimestamp, setDoc, getDoc, writeBatch } from 'firebase/firestore';
-import { Draft, ClinicSettings, Email, Template } from './types';
+import { Draft, ClinicSettings, Email, Template, GmailImport } from './types';
 
 // Collection definitions
 const DRAFTS_COLLECTION = 'drafts';
 const POLICIES_COLLECTION = 'policies';
 const SETTINGS_COLLECTION = 'settings';
 const EMAILS_COLLECTION = 'emails';
+
 const TEMPLATES_COLLECTION = 'templates';
+const GMAIL_IMPORTS_COLLECTION = 'gmail_imports';
 const DEFAULT_SETTINGS_DOC = 'default';
 
 /**
@@ -333,5 +335,45 @@ export async function deleteTemplate(id: string) {
         await deleteDoc(docRef);
     } catch (e) {
         console.error("Failed to delete template:", e);
+    }
+}
+
+/**
+ * Get unprocessed Gmail imports
+ */
+
+export async function getGmailImports(): Promise<GmailImport[]> {
+    if (!db) return [];
+    try {
+        const q = query(
+            collection(db, GMAIL_IMPORTS_COLLECTION),
+            where("isProcessed", "==", false),
+            orderBy("receivedAt", "asc")
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as GmailImport));
+    } catch (e) {
+        console.error("Failed to get gmail imports:", e);
+        return [];
+    }
+}
+
+/**
+ * Mark Gmail imports as processed
+ */
+export async function markGmailProcessed(ids: string[]) {
+    if (!db || ids.length === 0) return;
+    try {
+        const batch = writeBatch(db);
+        ids.forEach(id => {
+            const docRef = doc(db!, GMAIL_IMPORTS_COLLECTION, id);
+            batch.update(docRef, { isProcessed: true });
+        });
+        await batch.commit();
+    } catch (e) {
+        console.error("Failed to mark gmail as processed:", e);
     }
 }
