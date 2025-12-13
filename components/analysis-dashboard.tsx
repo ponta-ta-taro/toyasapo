@@ -1,7 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Email } from "@/lib/types"
+import { db } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
 import { Input } from "@/components/ui/input"
 import {
     Select,
@@ -17,14 +19,6 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import {
     PieChart,
     Pie,
     Cell,
@@ -39,99 +33,22 @@ import {
     LineChart,
     Line
 } from "recharts"
-import { BarChart3 } from "lucide-react"
+import { BarChart3, Database } from "lucide-react"
 
-// 日本語を簡易的に分割（2文字以上のひらがな・カタカナ・漢字の連続を抽出）
-const extractWords = (text: string): string[] => {
-    const matches = text.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,}/g);
-    return matches || [];
-};
+interface AnalyzedWord {
+    word: string;
+    count: number;
+}
 
-// 頻出単語を大きさと色を変えて表示するシンプルな実装
-const WordCloud = ({ words }: { words: { text: string; value: number }[] }) => {
-    const maxValue = Math.max(...words.map(w => w.value), 1);
-
-    return (
-        <div className="flex flex-wrap gap-2 justify-center items-center p-4">
-            {words.map((word, index) => {
-                const size = Math.max(12, Math.min(36, (word.value / maxValue) * 36));
-                const colors = ['text-blue-600', 'text-teal-600', 'text-purple-600', 'text-orange-600', 'text-pink-600'];
-                return (
-                    <span
-                        key={index}
-                        className={`${colors[index % colors.length]} font-medium`}
-                        style={{ fontSize: `${size}px` }}
-                    >
-                        {word.text}
-                    </span>
-                );
-            })}
-        </div>
-    );
-};
-
-const STOP_WORDS = new Set([
-    // 助詞
-    "の", "は", "が", "を", "に", "で", "と", "も", "や", "か", "へ", "より", "から", "まで", "など", "って", "ね", "よ", "わ", "な",
-    // 助動詞・活用形
-    "です", "ます", "でした", "ました", "ません", "ない", "なかっ", "まし", "でしょ", "だろう", "たい", "たく", "たかっ", "れる", "られる", "せる", "させる", "だ", "た",
-    // 動詞（一般的すぎるもの）
-    "いる", "ある", "する", "なる", "できる", "いく", "くる", "おる", "みる", "いう", "思う", "思い", "考え", "知り", "知っ",
-    // 形容詞（一般的すぎるもの）
-    "いい", "よい", "良い", "多い", "少ない", "大きい", "小さい",
-    // 副詞・接続詞
-    "とても", "かなり", "すごく", "また", "そして", "しかし", "ただ", "もし", "まだ", "もう", "よく", "あまり", "ちょっと",
-    // 一般的すぎる名詞・代名詞
-    "こと", "もの", "ため", "よう", "ところ", "とき", "方", "人", "私", "僕", "自分", "今", "後", "前", "中", "上", "下", "件", "点", "旨", "等", "それ", "これ", "あれ", "ん", "お客様",
-    // 敬語表現
-    "お", "ご", "いただき", "くださり", "致し", "申し", "存じ", "頂き", "下さい", "ください", "いたし", "ござい", "ありがとう", "存じ",
-    // 接頭辞・接尾辞・記号
-    "さん", "様", "殿", "氏", "的", "性", "化", "・", "、", "。", "?", "！", "...", "？", "!", "\n", " ", "　",
-    // メール特有・テンプレート文
-    "メール", "アドレス", "問い合わせ", "問合せ", "連絡", "返信", "送信", "受信", "件名", "宛先", "相談", "お願い", "申し訳",
-    "名前削除", "このメールは", "お問い合わせフォームから送信されました", "ご担当の方は本文のメールアドレスまたはお電話番号にご対応をお願いします",
-    "よろしくお願いします", "よろしくお願いいたします", "お世話になっております", "いつもお世話になっております", "お忙しいところ恐れ入りますが",
-    "申し訳ありません", "ありがとうございます",
-    // 挨拶・定型文（追加分）
-    "現在", "はじめまして", "初めまして", "宜しくお願い致します", "よろしくお願い致します", "宜しくお願いします", "お世話になります",
-    "本日", "先日", "明日", "削除", "こちらでは", "当方", "あと", "可能でしたら",
-    // 一般的すぎる表現（追加分）
-    "診察券番号", "こんにちは", "と申します", "ですが", "なお", "真緒です", "むしろ", "御机下", "アクセスした次第です", "相談がありまして",
-    // 署名・フッター関連
-    "新藤雅延先生", "有限会社", "事業部", "番地"
-]);
-
-// カテゴリ別キーワード辞書
-const KEYWORD_DICTIONARIES = {
-    disease: {
-        label: "病名・診断",
-        color: "#3b82f6", // blue-500
-        keywords: [
-            "うつ病", "うつ", "鬱", "鬱病", "パニック障害", "パニック", "発達障害", "ADHD", "注意欠陥", "ASD", "自閉症", "アスペルガー", "適応障害", "不眠症", "睡眠障害", "社交不安", "対人恐怖", "強迫性障害", "強迫症", "OCD", "双極性障害", "躁うつ", "統合失調症", "PTSD", "心的外傷", "摂食障害", "過食", "拒食", "依存症", "アルコール依存", "認知症", "更年期障害", "自律神経失調症", "PMS", "PMDD", "HSP"
-        ]
-    },
-    symptom: {
-        label: "症状",
-        color: "#f97316", // orange-500
-        keywords: [
-            "眠れない", "不眠", "寝れない", "不安", "動悸", "息苦しい", "過呼吸", "食欲不振", "食欲がない", "倦怠感", "だるい", "疲れ", "集中できない", "涙が止まらない", "泣いてしまう", "イライラ", "怒り", "落ち込み", "憂うつ", "やる気が出ない", "無気力", "頭痛", "めまい", "吐き気", "手の震え", "緊張", "恐怖", "パニック発作", "フラッシュバック", "幻聴", "幻覚", "妄想", "希死念慮", "死にたい", "自傷"
-        ]
-    },
-    concern: {
-        label: "悩み・状況",
-        color: "#22c55e", // green-500
-        keywords: [
-            "休職", "復職", "退職", "仕事", "職場", "上司", "同僚", "パワハラ", "セクハラ", "いじめ", "人間関係", "家族", "親", "夫", "妻", "子供", "育児", "介護", "離婚", "結婚", "恋愛", "学校", "不登校", "受験", "進路", "ストレス", "孤独", "引きこもり"
-        ]
-    },
-    inquiryType: {
-        label: "相談内容",
-        color: "#a855f7", // purple-500
-        keywords: [
-            "予約", "キャンセル", "変更", "診断書", "紹介状", "セカンドオピニオン", "薬", "処方", "副作用", "カウンセリング", "心理検査", "費用", "料金", "保険", "自立支援", "障害年金", "傷病手当", "初診", "再診", "通院"
-        ]
-    }
-};
+interface ColabAnalysisData {
+    updated_at: string;
+    total_count: number;
+    keywords_top20: AnalyzedWord[];
+    disease: AnalyzedWord[];
+    symptoms: AnalyzedWord[];
+    concerns: AnalyzedWord[];
+    inquiry_types: AnalyzedWord[];
+}
 
 interface AnalysisDashboardProps {
     isOpen: boolean;
@@ -147,6 +64,37 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
     const [dateRange, setDateRange] = useState<string>("all");
     const [customStartDate, setCustomStartDate] = useState<string>("");
     const [customEndDate, setCustomEndDate] = useState<string>("");
+    const [colabData, setColabData] = useState<ColabAnalysisData | null>(null);
+    const [loadingColab, setLoadingColab] = useState(false);
+
+    useEffect(() => {
+        const fetchColabAnalysis = async () => {
+            if (!isOpen) return;
+            try {
+                setLoadingColab(true);
+                // db can be null if config is broken, so check, although in this project context it should be fine.
+                // Assuming db is imported as Firestore | null
+                if (!db) {
+                    console.warn("Firestore not loaded or not initialized");
+                    return;
+                }
+                const docRef = doc(db, 'analysis_results', 'latest');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    setColabData(docSnap.data() as ColabAnalysisData);
+                } else {
+                    setColabData(null);
+                }
+            } catch (error) {
+                console.error("Error fetching colab analysis:", error);
+                setColabData(null);
+            } finally {
+                setLoadingColab(false);
+            }
+        };
+
+        fetchColabAnalysis();
+    }, [isOpen]);
 
     const filteredEmails = useMemo(() => {
         if (dateRange === "all") return emails;
@@ -183,73 +131,6 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
             return true;
         });
     }, [emails, dateRange, customStartDate, customEndDate]);
-
-    const allWordCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-
-        filteredEmails.forEach(email => {
-            if (!email.inquiry) return;
-            const segments = extractWords(email.inquiry);
-
-            segments.forEach(word => {
-                // Filter: not in STOP_WORDS (Regex ensures length >= 2), and length <= 10
-                if (!STOP_WORDS.has(word) && word.length <= 10) {
-                    counts[word] = (counts[word] || 0) + 1;
-                }
-            });
-        });
-
-        // Convert to array and sort by value desc
-        return Object.entries(counts)
-            .map(([text, value]) => ({ text, value }))
-            .sort((a, b) => b.value - a.value);
-    }, [filteredEmails]);
-
-    const wordCloudData = useMemo(() => {
-        return allWordCounts.slice(0, 50);
-    }, [allWordCounts]);
-
-    const topKeywords = useMemo(() => {
-        return allWordCounts.slice(0, 5);
-    }, [allWordCounts]);
-
-    const potentialNeedsKeywords = useMemo(() => {
-        return allWordCounts
-            .filter(w => w.value >= 2 && w.value <= 5)
-            .slice(0, 5);
-    }, [allWordCounts]);
-
-    const categoryAnalysisData = useMemo(() => {
-        const results = {
-            disease: [] as { name: string, value: number }[],
-            symptom: [] as { name: string, value: number }[],
-            concern: [] as { name: string, value: number }[],
-            inquiryType: [] as { name: string, value: number }[]
-        };
-
-        const categories = ['disease', 'symptom', 'concern', 'inquiryType'] as const;
-
-        categories.forEach(catKey => {
-            const counts: Record<string, number> = {};
-            const dictionary = KEYWORD_DICTIONARIES[catKey];
-
-            filteredEmails.forEach(email => {
-                const text = email.inquiry || "";
-                dictionary.keywords.forEach(keyword => {
-                    if (text.includes(keyword)) {
-                        counts[keyword] = (counts[keyword] || 0) + 1;
-                    }
-                });
-            });
-
-            results[catKey] = Object.entries(counts)
-                .map(([name, value]) => ({ name, value }))
-                .sort((a, b) => b.value - a.value)
-                .slice(0, 5); // Top 5
-        });
-
-        return results;
-    }, [filteredEmails]);
 
     const categoryData = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -470,115 +351,118 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                         <div className="hidden lg:block lg:col-span-1"></div>
 
 
-                        {/* 6. Category Keyword Analysis Section (New Position) */}
+                        {/* 6. Colab Detailed Analysis Section */}
                         <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold mb-6">問い合わせ傾向分析</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {(Object.keys(KEYWORD_DICTIONARIES) as (keyof typeof KEYWORD_DICTIONARIES)[]).map((key) => (
-                                    <div key={key} className="flex flex-col">
-                                        <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: KEYWORD_DICTIONARIES[key].color }}>
-                                            {KEYWORD_DICTIONARIES[key].label}
-                                        </h4>
-                                        <div className="w-full h-[250px]">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart
-                                                    data={categoryAnalysisData[key]}
-                                                    layout="vertical"
-                                                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-                                                >
-                                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                                                    <XAxis type="number" hide />
-                                                    <YAxis
-                                                        dataKey="name"
-                                                        type="category"
-                                                        width={90}
-                                                        tick={{ fontSize: 12 }}
-                                                        interval={0}
-                                                    />
-                                                    <Tooltip
-                                                        contentStyle={{ borderRadius: '8px' }}
-                                                        cursor={{ fill: 'transparent' }}
-                                                    />
-                                                    <Bar
-                                                        dataKey="value"
-                                                        fill={KEYWORD_DICTIONARIES[key].color}
-                                                        radius={[0, 4, 4, 0]}
-                                                        barSize={20}
-                                                        label={{ position: 'right', fill: '#666', fontSize: 12 }}
-                                                    />
-                                                </BarChart>
-                                            </ResponsiveContainer>
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold flex items-center gap-2">
+                                    <Database className="h-5 w-5 text-indigo-600" />
+                                    Colab詳細分析（形態素解析）
+                                </h3>
+                                {colabData && (
+                                    <span className="text-sm text-gray-500">
+                                        最終更新: {new Date(colabData.updated_at).toLocaleString('ja-JP')}
+                                    </span>
+                                )}
+                            </div>
+
+                            {loadingColab ? (
+                                <div className="flex justify-center items-center h-[300px] text-gray-500">
+                                    読み込み中...
+                                </div>
+                            ) : !colabData ? (
+                                <div className="flex justify-center items-center h-[200px] bg-gray-50 rounded-lg text-gray-500">
+                                    分析データがありません。Google Colabで分析を実行してください。
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-8">
+                                    {/* Categories Grid (Top 10 Keywords removed by request) */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {/* Disease */}
+                                        <div>
+                                            <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: '#3b82f6' }}>
+                                                病名・診断
+                                            </h4>
+                                            <div className="w-full h-[250px]">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart
+                                                        data={colabData.disease.slice(0, 5).map(item => ({ name: item.word, value: item.count }))}
+                                                        layout="vertical"
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} label={{ position: 'right', fill: '#666', fontSize: 12 }} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* Symptom */}
+                                        <div>
+                                            <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: '#f97316' }}>
+                                                症状
+                                            </h4>
+                                            <div className="w-full h-[250px]">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart
+                                                        data={colabData.symptoms.slice(0, 5).map(item => ({ name: item.word, value: item.count }))}
+                                                        layout="vertical"
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="value" fill="#f97316" radius={[0, 4, 4, 0]} barSize={20} label={{ position: 'right', fill: '#666', fontSize: 12 }} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* Concern */}
+                                        <div>
+                                            <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: '#22c55e' }}>
+                                                悩み・状況
+                                            </h4>
+                                            <div className="w-full h-[250px]">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart
+                                                        data={colabData.concerns.slice(0, 5).map(item => ({ name: item.word, value: item.count }))}
+                                                        layout="vertical"
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="value" fill="#22c55e" radius={[0, 4, 4, 0]} barSize={20} label={{ position: 'right', fill: '#666', fontSize: 12 }} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* Inquiry Type */}
+                                        <div>
+                                            <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: '#a855f7' }}>
+                                                相談内容
+                                            </h4>
+                                            <div className="w-full h-[250px]">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart
+                                                        data={colabData.inquiry_types.slice(0, 5).map(item => ({ name: item.word, value: item.count }))}
+                                                        layout="vertical"
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="value" fill="#a855f7" radius={[0, 4, 4, 0]} barSize={20} label={{ position: 'right', fill: '#666', fontSize: 12 }} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* 7. Keyword Analysis Section (Word Cloud) - Moved to bottom */}
-                        <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Word Cloud */}
-                            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                                <h3 className="text-lg font-bold mb-4">参考：キーワード分析（精度向上中）</h3>
-                                <div className="w-full min-h-[300px] flex items-center justify-center">
-                                    <WordCloud words={wordCloudData} />
                                 </div>
-                            </div>
-
-                            {/* Rankings */}
-                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col gap-6">
-                                {/* Top Keywords */}
-                                <div>
-                                    <h3 className="text-lg font-bold mb-4">キーワードTOP5</h3>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[50px]">順位</TableHead>
-                                                <TableHead>キーワード</TableHead>
-                                                <TableHead className="text-right">件数</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {topKeywords.map((keyword, index) => (
-                                                <TableRow key={keyword.text}>
-                                                    <TableCell className="font-medium">{index + 1}</TableCell>
-                                                    <TableCell>{keyword.text}</TableCell>
-                                                    <TableCell className="text-right">{keyword.value}件</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-
-                                {/* Potential Needs Keywords */}
-                                <div>
-                                    <h3 className="text-lg font-bold mb-4 text-blue-700">潜在ニーズキーワード<span className="text-sm font-normal text-gray-500 ml-2">（少数の問い合わせ）</span></h3>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[50px]">順位</TableHead>
-                                                <TableHead>キーワード</TableHead>
-                                                <TableHead className="text-right">件数</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {potentialNeedsKeywords.map((keyword, index) => (
-                                                <TableRow key={keyword.text}>
-                                                    <TableCell className="font-medium">{index + 1}</TableCell>
-                                                    <TableCell>{keyword.text}</TableCell>
-                                                    <TableCell className="text-right">{keyword.value}件</TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {potentialNeedsKeywords.length === 0 && (
-                                                <TableRow>
-                                                    <TableCell colSpan={3} className="text-center text-gray-500 py-4">
-                                                        該当するキーワードはありません
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                     </div>
