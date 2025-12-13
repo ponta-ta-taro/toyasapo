@@ -374,7 +374,77 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                     分析データがありません。Google Colabで分析を実行してください。
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-8">
+                                <div className="flex flex-col gap-6">
+                                    {/* Summary Section */}
+                                    <div className="bg-slate-50 p-5 rounded-lg border border-slate-200">
+                                        <h4 className="text-base font-bold flex items-center gap-2 mb-4 text-slate-700">
+                                            📋 分析サマリー
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                            {/* Data Overview */}
+                                            <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100 flex flex-col justify-center">
+                                                <div className="text-xs text-gray-500 font-medium mb-1">総問い合わせ件数</div>
+                                                <div className="text-2xl font-bold text-gray-800">{colabData.total_count.toLocaleString()}件</div>
+                                            </div>
+
+                                            {/* Disease Top 3 */}
+                                            <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100 lg:col-span-1">
+                                                <div className="text-xs text-blue-600 font-bold mb-2 border-b border-blue-100 pb-1">■ 病名・診断 TOP3</div>
+                                                <div className="text-sm text-gray-700 space-y-1">
+                                                    {colabData.disease.slice(0, 3).map((item, i) => (
+                                                        <div key={i} className="flex justify-between">
+                                                            <span className="font-medium">{item.word}</span>
+                                                            <span className="text-gray-500 text-xs">({item.count}件)</span>
+                                                        </div>
+                                                    ))}
+                                                    {colabData.disease.length === 0 && <span className="text-gray-400 text-xs">データなし</span>}
+                                                </div>
+                                            </div>
+
+                                            {/* Symptoms Top 3 */}
+                                            <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100 lg:col-span-1">
+                                                <div className="text-xs text-orange-500 font-bold mb-2 border-b border-orange-100 pb-1">■ 症状 TOP3</div>
+                                                <div className="text-sm text-gray-700 space-y-1">
+                                                    {colabData.symptoms.slice(0, 3).map((item, i) => (
+                                                        <div key={i} className="flex justify-between">
+                                                            <span className="font-medium">{item.word}</span>
+                                                            <span className="text-gray-500 text-xs">({item.count}件)</span>
+                                                        </div>
+                                                    ))}
+                                                    {colabData.symptoms.length === 0 && <span className="text-gray-400 text-xs">データなし</span>}
+                                                </div>
+                                            </div>
+
+                                            {/* Concerns Top 3 */}
+                                            <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100 lg:col-span-1">
+                                                <div className="text-xs text-green-600 font-bold mb-2 border-b border-green-100 pb-1">■ 悩み・状況 TOP3</div>
+                                                <div className="text-sm text-gray-700 space-y-1">
+                                                    {colabData.concerns.slice(0, 3).map((item, i) => (
+                                                        <div key={i} className="flex justify-between">
+                                                            <span className="font-medium">{item.word}</span>
+                                                            <span className="text-gray-500 text-xs">({item.count}件)</span>
+                                                        </div>
+                                                    ))}
+                                                    {colabData.concerns.length === 0 && <span className="text-gray-400 text-xs">データなし</span>}
+                                                </div>
+                                            </div>
+
+                                            {/* Inquiry Types Top 3 */}
+                                            <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100 lg:col-span-1">
+                                                <div className="text-xs text-purple-600 font-bold mb-2 border-b border-purple-100 pb-1">■ 相談内容 TOP3</div>
+                                                <div className="text-sm text-gray-700 space-y-1">
+                                                    {colabData.inquiry_types.slice(0, 3).map((item, i) => (
+                                                        <div key={i} className="flex justify-between">
+                                                            <span className="font-medium">{item.word}</span>
+                                                            <span className="text-gray-500 text-xs">({item.count}件)</span>
+                                                        </div>
+                                                    ))}
+                                                    {colabData.inquiry_types.length === 0 && <span className="text-gray-400 text-xs">データなし</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Categories Grid (Top 10 Keywords removed by request) */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         {/* Disease */}
