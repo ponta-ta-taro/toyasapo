@@ -16,6 +16,16 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog"
+import ReactWordcloud from "react-wordcloud";
+import TinySegmenter from "tiny-segmenter";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 import {
     PieChart,
     Pie,
@@ -32,6 +42,16 @@ import {
     Line
 } from "recharts"
 import { BarChart3 } from "lucide-react"
+
+const STOP_WORDS = new Set([
+    "の", "は", "が", "を", "に", "で", "と", "も", "や", "て", "へ", "から", "まで",
+    "です", "ます", "した", "ている", "ない", "ある", "する", "だ", "た", "れる", "られる",
+    "こと", "もの", "ため", "よう", "それ", "これ", "あれ", "ん", "の",
+    "私", "僕", "自分", "さん", "様", "殿", "お客様",
+    "相談", "連絡", "確認", "お願い", "申し訳", "ござい", "ありがとう", "存じ", "致し",
+    "について", "つきまして", "お", "ご",
+    ".", "、", "。", "\n", " ", "　", "!", "?", "！", "？"
+]);
 
 interface AnalysisDashboardProps {
     isOpen: boolean;
@@ -83,6 +103,34 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
             return true;
         });
     }, [emails, dateRange, customStartDate, customEndDate]);
+
+    const wordCloudData = useMemo(() => {
+        const segmenter = new TinySegmenter();
+        const counts: Record<string, number> = {};
+
+        filteredEmails.forEach(email => {
+            if (!email.inquiry) return;
+            const segments = segmenter.segment(email.inquiry);
+
+            segments.forEach(seg => {
+                const word = seg.trim();
+                // Filter: Length > 1 and not in STOP_WORDS and not a number
+                if (word.length > 1 && !STOP_WORDS.has(word) && isNaN(Number(word))) {
+                    counts[word] = (counts[word] || 0) + 1;
+                }
+            });
+        });
+
+        // Convert to array and sort
+        return Object.entries(counts)
+            .map(([text, value]) => ({ text, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 70); // Limit to top 70 words for visualization
+    }, [filteredEmails]);
+
+    const topKeywords = useMemo(() => {
+        return wordCloudData.slice(0, 5);
+    }, [wordCloudData]);
 
     const categoryData = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -263,6 +311,49 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                         <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} name="件数" />
                                     </LineChart>
                                 </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Keyword Analysis Section */}
+                        <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Word Cloud */}
+                            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                                <h3 className="text-lg font-bold mb-4">よくある問い合わせキーワード</h3>
+                                <div className="w-full h-[400px]">
+                                    <ReactWordcloud
+                                        words={wordCloudData}
+                                        options={{
+                                            rotations: 2,
+                                            rotationAngles: [-90, 0],
+                                            fontSizes: [12, 60],
+                                            deterministic: true,
+                                            enableTooltip: true,
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Ranking Table */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                                <h3 className="text-lg font-bold mb-4">キーワードTOP5</h3>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[50px]">順位</TableHead>
+                                            <TableHead>キーワード</TableHead>
+                                            <TableHead className="text-right">件数</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {topKeywords.map((keyword, index) => (
+                                            <TableRow key={keyword.text}>
+                                                <TableCell className="font-medium">{index + 1}</TableCell>
+                                                <TableCell>{keyword.text}</TableCell>
+                                                <TableCell className="text-right">{keyword.value}件</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </div>
                         </div>
 
