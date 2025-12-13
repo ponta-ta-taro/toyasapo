@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X, Play, Filter, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, RefreshCw, Mail, Search, SortDesc } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, RefreshCw, Mail, Search, SortDesc, Trash2, Undo2, Ban } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import {
@@ -20,7 +20,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed } from "@/lib/db"
+import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed, deleteEmail, restoreEmail, hardDeleteEmail } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
 import { LearningDataManager } from "@/components/learning-data-manager"
 import { AnalysisDashboard } from "@/components/analysis-dashboard"
@@ -110,6 +110,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     const [filterPriorities, setFilterPriorities] = useState<number[]>([])
     const [filterDateRange, setFilterDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
     const [filterNewOnly, setFilterNewOnly] = useState(false)
+    const [filterTrash, setFilterTrash] = useState(false)
 
 
     // Analysis State
@@ -645,6 +646,14 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     const filteredEmails = useMemo(() => {
         let result = [...emails];
 
+
+        // 0. Filter Trash (Soft Delete)
+        if (filterTrash) {
+            result = result.filter(e => e.isDeleted);
+        } else {
+            result = result.filter(e => !e.isDeleted);
+        }
+
         // 1. Search
         if (searchQuery) {
             const lowerQ = searchQuery.toLowerCase();
@@ -702,7 +711,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         });
 
         return result;
-    }, [emails, searchQuery, filterCategories, filterPriorities, filterDateRange, filterNewOnly, sortOption]);
+    }, [emails, searchQuery, filterCategories, filterPriorities, filterDateRange, filterNewOnly, sortOption, filterTrash]);
 
     // Alias for backward compatibility if needed, or just use filteredEmails
     const derivedEmails = filteredEmails;
@@ -724,6 +733,13 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     {/* Action Buttons */}
                     <div className="flex gap-3 mr-4">
                         <Button
+                            onClick={() => setIsPolicyModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 border-0 shadow-md"
+                        >
+                            <Settings className="w-4 h-4" />
+                            <span>設定</span>
+                        </Button>
+                        <Button
                             onClick={() => setIsTemplateModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white border-0 shadow-md"
                         >
@@ -731,25 +747,18 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             <span>模範回答</span>
                         </Button>
                         <Button
-                            onClick={() => setIsAnalysisModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white border-0 shadow-md"
-                        >
-                            <BarChart3 className="w-4 h-4" />
-                            <span>分析</span>
-                        </Button>
-                        <Button
                             onClick={() => setIsLearningDataManagerOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white border-0 shadow-md"
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white border-0 shadow-md"
                         >
                             <BookOpen className="w-4 h-4" />
                             <span>学習データ管理</span>
                         </Button>
                         <Button
-                            onClick={() => setIsPolicyModalOpen(true)}
+                            onClick={() => setIsAnalysisModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white border-0 shadow-md"
                         >
-                            <Settings className="w-4 h-4" />
-                            <span>設定</span>
+                            <BarChart3 className="w-4 h-4" />
+                            <span>分析</span>
                         </Button>
                     </div>
 
@@ -881,6 +890,17 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                         <span>新着（未処理）のみ</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => {
+                                        setFilterTrash(!filterTrash);
+                                        // Reset other filters when entering/exiting trash mode to avoid confusion?
+                                        // keeping it simple for now
+                                    }}>
+                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", filterTrash ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                            <Check className={cn("h-4 w-4")} />
+                                        </div>
+                                        <span>ゴミ箱 (削除済み)</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuLabel>日付範囲</DropdownMenuLabel>
                                     {(['all', 'today', 'week', 'month'] as const).map((range) => (
                                         <DropdownMenuItem key={range} onClick={() => setFilterDateRange(range)}>
@@ -951,7 +971,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                             setIsManualInput(false);
                                         }}
                                         className={cn(
-                                            "w-full p-4 rounded-lg text-left transition-all relative",
+                                            "w-full p-4 rounded-lg text-left transition-all relative group pr-2",
                                             isSelected
                                                 ? "bg-white shadow-lg border-2 border-blue-500 ring-2 ring-blue-100 z-10"
                                                 : "bg-white hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-300 shadow-sm"
@@ -990,7 +1010,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                         </span>
                                                     )}
                                                 </div>
-                                            </div>
+                                            </div >
                                         </div>
                                     </button>
                                 );
@@ -1021,7 +1041,56 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                         <>
                                             <div className="flex justify-between items-start mb-2">
                                                 <h2 className="text-2xl font-bold text-gray-900">{selectedEmail?.classification?.category || "未分類"} に関する問い合わせ</h2>
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-2 items-center">
+                                                    {filterTrash ? (
+                                                        <>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="text-green-600 border-green-200 hover:bg-green-50 h-8"
+                                                                onClick={async () => {
+                                                                    if (!selectedEmailId) return;
+                                                                    await restoreEmail(selectedEmailId);
+                                                                    setEmails(prev => prev.map(em => em.id === selectedEmailId ? { ...em, isDeleted: false } : em));
+                                                                    toast.success("メールを復元しました");
+                                                                    setSelectedEmailId(null);
+                                                                }}
+                                                            >
+                                                                <Undo2 className="w-4 h-4 mr-2" /> 復元
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="text-red-600 border-red-200 hover:bg-red-50 h-8"
+                                                                onClick={async () => {
+                                                                    if (!selectedEmailId) return;
+                                                                    if (!confirm("本当に完全に削除しますか？この操作は取り消せません。")) return;
+                                                                    await hardDeleteEmail(selectedEmailId);
+                                                                    setEmails(prev => prev.filter(em => em.id !== selectedEmailId));
+                                                                    toast.success("メールを完全に削除しました");
+                                                                    setSelectedEmailId(null);
+                                                                }}
+                                                            >
+                                                                <Ban className="w-4 h-4 mr-2" /> 完全削除
+                                                            </Button>
+                                                        </>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-gray-500 hover:text-red-600 hover:bg-red-50 h-8"
+                                                            onClick={async () => {
+                                                                if (!selectedEmailId) return;
+                                                                if (!confirm("このメールをゴミ箱に移動しますか？")) return;
+                                                                await deleteEmail(selectedEmailId);
+                                                                setEmails(prev => prev.map(em => em.id === selectedEmailId ? { ...em, isDeleted: true } : em));
+                                                                toast.success("メールをゴミ箱に移動しました");
+                                                                setSelectedEmailId(null);
+                                                            }}
+                                                        >
+                                                            <Trash2 className="w-4 h-4 mr-2" /> 削除
+                                                        </Button>
+                                                    )}
                                                     {selectedEmail?.classification?.priority === 5 && (
                                                         <span className="px-3 py-1 bg-red-100 text-red-700 border border-red-200 rounded-full text-base font-bold flex items-center gap-1">
                                                             <Loader2 className="w-4 h-4 text-red-600 animate-pulse" /> 重要

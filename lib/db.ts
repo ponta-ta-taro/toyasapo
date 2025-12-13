@@ -282,6 +282,54 @@ export async function updateEmail(id: string, updates: Partial<Email>) {
         console.error("Failed to update email:", e);
     }
 }
+
+/**
+ * Soft delete email
+ */
+export async function deleteEmail(id: string) {
+    if (!db) return;
+    try {
+        const docRef = doc(db, EMAILS_COLLECTION, id);
+        await updateDoc(docRef, {
+            isDeleted: true,
+            deletedAt: serverTimestamp()
+        });
+    } catch (e) {
+        console.error("Failed to soft delete email:", e);
+        throw e;
+    }
+}
+
+/**
+ * Restore email from trash
+ */
+export async function restoreEmail(id: string) {
+    if (!db) return;
+    try {
+        const docRef = doc(db, EMAILS_COLLECTION, id);
+        await updateDoc(docRef, {
+            isDeleted: false,
+            deletedAt: null
+        });
+    } catch (e) {
+        console.error("Failed to restore email:", e);
+        throw e;
+    }
+}
+
+/**
+ * Hard delete email (Permanently)
+ */
+export async function hardDeleteEmail(id: string) {
+    if (!db) return;
+    try {
+        const docRef = doc(db, EMAILS_COLLECTION, id);
+        await deleteDoc(docRef);
+    } catch (e) {
+        console.error("Failed to hard delete email:", e);
+        throw e;
+    }
+}
 /**
  * Save new template
  */

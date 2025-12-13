@@ -12,6 +12,8 @@ export interface Email {
   classification?: Classification;
   source?: 'csv' | 'manual' | 'gmail';
   isProcessed?: boolean; // True if replied or manually marked
+  isDeleted?: boolean;
+  deletedAt?: unknown;
 }
 
 export interface Draft {
