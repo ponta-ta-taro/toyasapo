@@ -87,8 +87,13 @@ const STOP_WORDS = new Set([
     "お", "ご", "いただき", "くださり", "致し", "申し", "存じ", "頂き", "下さい", "ください", "いたし", "ござい", "ありがとう", "存じ",
     // 接頭辞・接尾辞・記号
     "さん", "様", "殿", "氏", "的", "性", "化", "・", "、", "。", "?", "！", "...", "？", "!", "\n", " ", "　",
-    // メール特有
-    "メール", "アドレス", "問い合わせ", "問合せ", "連絡", "返信", "送信", "受信", "件名", "宛先", "相談", "お願い", "申し訳"
+    // メール特有・テンプレート文
+    "メール", "アドレス", "問い合わせ", "問合せ", "連絡", "返信", "送信", "受信", "件名", "宛先", "相談", "お願い", "申し訳",
+    "名前削除", "このメールは", "お問い合わせフォームから送信されました", "ご担当の方は本文のメールアドレスまたはお電話番号にご対応をお願いします",
+    "よろしくお願いします", "よろしくお願いいたします", "お世話になっております", "いつもお世話になっております", "お忙しいところ恐れ入りますが",
+    "申し訳ありません", "ありがとうございます",
+    // 署名・フッター関連
+    "新藤雅延先生", "有限会社", "事業部", "番地"
 ]);
 
 interface AnalysisDashboardProps {
@@ -142,7 +147,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
         });
     }, [emails, dateRange, customStartDate, customEndDate]);
 
-    const wordCloudData = useMemo(() => {
+    const allWordCounts = useMemo(() => {
         const counts: Record<string, number> = {};
 
         filteredEmails.forEach(email => {
@@ -150,23 +155,32 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
             const segments = extractWords(email.inquiry);
 
             segments.forEach(word => {
-                // Filter: not in STOP_WORDS (Regex ensures length >= 2)
-                if (!STOP_WORDS.has(word)) {
+                // Filter: not in STOP_WORDS (Regex ensures length >= 2), and length <= 10
+                if (!STOP_WORDS.has(word) && word.length <= 10) {
                     counts[word] = (counts[word] || 0) + 1;
                 }
             });
         });
 
-        // Convert to array and sort
+        // Convert to array and sort by value desc
         return Object.entries(counts)
             .map(([text, value]) => ({ text, value }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 50); // Limit to top 50 words for visualization
+            .sort((a, b) => b.value - a.value);
     }, [filteredEmails]);
 
+    const wordCloudData = useMemo(() => {
+        return allWordCounts.slice(0, 50);
+    }, [allWordCounts]);
+
     const topKeywords = useMemo(() => {
-        return wordCloudData.slice(0, 5);
-    }, [wordCloudData]);
+        return allWordCounts.slice(0, 5);
+    }, [allWordCounts]);
+
+    const potentialNeedsKeywords = useMemo(() => {
+        return allWordCounts
+            .filter(w => w.value >= 2 && w.value <= 5)
+            .slice(0, 5);
+    }, [allWordCounts]);
 
     const categoryData = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -360,27 +374,60 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                 </div>
                             </div>
 
-                            {/* Ranking Table */}
-                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                                <h3 className="text-lg font-bold mb-4">キーワードTOP5</h3>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[50px]">順位</TableHead>
-                                            <TableHead>キーワード</TableHead>
-                                            <TableHead className="text-right">件数</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {topKeywords.map((keyword, index) => (
-                                            <TableRow key={keyword.text}>
-                                                <TableCell className="font-medium">{index + 1}</TableCell>
-                                                <TableCell>{keyword.text}</TableCell>
-                                                <TableCell className="text-right">{keyword.value}件</TableCell>
+                            {/* Rankings */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col gap-6">
+                                {/* Top Keywords */}
+                                <div>
+                                    <h3 className="text-lg font-bold mb-4">キーワードTOP5</h3>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[50px]">順位</TableHead>
+                                                <TableHead>キーワード</TableHead>
+                                                <TableHead className="text-right">件数</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {topKeywords.map((keyword, index) => (
+                                                <TableRow key={keyword.text}>
+                                                    <TableCell className="font-medium">{index + 1}</TableCell>
+                                                    <TableCell>{keyword.text}</TableCell>
+                                                    <TableCell className="text-right">{keyword.value}件</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+
+                                {/* Potential Needs Keywords */}
+                                <div>
+                                    <h3 className="text-lg font-bold mb-4 text-blue-700">潜在ニーズキーワード<span className="text-sm font-normal text-gray-500 ml-2">（少数の問い合わせ）</span></h3>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[50px]">順位</TableHead>
+                                                <TableHead>キーワード</TableHead>
+                                                <TableHead className="text-right">件数</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {potentialNeedsKeywords.map((keyword, index) => (
+                                                <TableRow key={keyword.text}>
+                                                    <TableCell className="font-medium">{index + 1}</TableCell>
+                                                    <TableCell>{keyword.text}</TableCell>
+                                                    <TableCell className="text-right">{keyword.value}件</TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {potentialNeedsKeywords.length === 0 && (
+                                                <TableRow>
+                                                    <TableCell colSpan={3} className="text-center text-gray-500 py-4">
+                                                        該当するキーワードはありません
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         </div>
 
