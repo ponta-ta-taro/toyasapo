@@ -96,6 +96,38 @@ const STOP_WORDS = new Set([
     "新藤雅延先生", "有限会社", "事業部", "番地"
 ]);
 
+// カテゴリ別キーワード辞書
+const KEYWORD_DICTIONARIES = {
+    disease: {
+        label: "病名・診断",
+        color: "#3b82f6", // blue-500
+        keywords: [
+            "うつ病", "うつ", "鬱", "鬱病", "パニック障害", "パニック", "発達障害", "ADHD", "注意欠陥", "ASD", "自閉症", "アスペルガー", "適応障害", "不眠症", "睡眠障害", "社交不安", "対人恐怖", "強迫性障害", "強迫症", "OCD", "双極性障害", "躁うつ", "統合失調症", "PTSD", "心的外傷", "摂食障害", "過食", "拒食", "依存症", "アルコール依存", "認知症", "更年期障害", "自律神経失調症", "PMS", "PMDD", "HSP"
+        ]
+    },
+    symptom: {
+        label: "症状",
+        color: "#f97316", // orange-500
+        keywords: [
+            "眠れない", "不眠", "寝れない", "不安", "動悸", "息苦しい", "過呼吸", "食欲不振", "食欲がない", "倦怠感", "だるい", "疲れ", "集中できない", "涙が止まらない", "泣いてしまう", "イライラ", "怒り", "落ち込み", "憂うつ", "やる気が出ない", "無気力", "頭痛", "めまい", "吐き気", "手の震え", "緊張", "恐怖", "パニック発作", "フラッシュバック", "幻聴", "幻覚", "妄想", "希死念慮", "死にたい", "自傷"
+        ]
+    },
+    concern: {
+        label: "悩み・状況",
+        color: "#22c55e", // green-500
+        keywords: [
+            "休職", "復職", "退職", "仕事", "職場", "上司", "同僚", "パワハラ", "セクハラ", "いじめ", "人間関係", "家族", "親", "夫", "妻", "子供", "育児", "介護", "離婚", "結婚", "恋愛", "学校", "不登校", "受験", "進路", "ストレス", "孤独", "引きこもり"
+        ]
+    },
+    inquiryType: {
+        label: "相談内容",
+        color: "#a855f7", // purple-500
+        keywords: [
+            "予約", "キャンセル", "変更", "診断書", "紹介状", "セカンドオピニオン", "薬", "処方", "副作用", "カウンセリング", "心理検査", "費用", "料金", "保険", "自立支援", "障害年金", "傷病手当", "初診", "再診", "通院"
+        ]
+    }
+};
+
 interface AnalysisDashboardProps {
     isOpen: boolean;
     onClose: () => void;
@@ -181,6 +213,38 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
             .filter(w => w.value >= 2 && w.value <= 5)
             .slice(0, 5);
     }, [allWordCounts]);
+
+    const categoryAnalysisData = useMemo(() => {
+        const results = {
+            disease: [] as { name: string, value: number }[],
+            symptom: [] as { name: string, value: number }[],
+            concern: [] as { name: string, value: number }[],
+            inquiryType: [] as { name: string, value: number }[]
+        };
+
+        const categories = ['disease', 'symptom', 'concern', 'inquiryType'] as const;
+
+        categories.forEach(catKey => {
+            const counts: Record<string, number> = {};
+            const dictionary = KEYWORD_DICTIONARIES[catKey];
+
+            filteredEmails.forEach(email => {
+                const text = email.inquiry || "";
+                dictionary.keywords.forEach(keyword => {
+                    if (text.includes(keyword)) {
+                        counts[keyword] = (counts[keyword] || 0) + 1;
+                    }
+                });
+            });
+
+            results[catKey] = Object.entries(counts)
+                .map(([name, value]) => ({ name, value }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 5); // Top 5
+        });
+
+        return results;
+    }, [filteredEmails]);
 
     const categoryData = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -428,6 +492,50 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                         </TableBody>
                                     </Table>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Category Keyword Analysis Section */}
+                        <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold mb-6">問い合わせ傾向分析</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {(Object.keys(KEYWORD_DICTIONARIES) as (keyof typeof KEYWORD_DICTIONARIES)[]).map((key) => (
+                                    <div key={key} className="flex flex-col">
+                                        <h4 className="text-md font-semibold mb-2 text-gray-700 border-l-4 pl-2" style={{ borderColor: KEYWORD_DICTIONARIES[key].color }}>
+                                            {KEYWORD_DICTIONARIES[key].label}
+                                        </h4>
+                                        <div className="w-full h-[250px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart
+                                                    data={categoryAnalysisData[key]}
+                                                    layout="vertical"
+                                                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                                                >
+                                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                    <XAxis type="number" hide />
+                                                    <YAxis
+                                                        dataKey="name"
+                                                        type="category"
+                                                        width={90}
+                                                        tick={{ fontSize: 12 }}
+                                                        interval={0}
+                                                    />
+                                                    <Tooltip
+                                                        contentStyle={{ borderRadius: '8px' }}
+                                                        cursor={{ fill: 'transparent' }}
+                                                    />
+                                                    <Bar
+                                                        dataKey="value"
+                                                        fill={KEYWORD_DICTIONARIES[key].color}
+                                                        radius={[0, 4, 4, 0]}
+                                                        barSize={20}
+                                                        label={{ position: 'right', fill: '#666', fontSize: 12 }}
+                                                    />
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
