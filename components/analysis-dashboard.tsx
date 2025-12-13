@@ -262,121 +262,127 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex-1 overflow-y-auto bg-gray-50">
+                    <div className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                        {/* 1. Category Chart */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center lg:col-span-2">
-                            <h3 className="text-lg font-bold mb-4 w-full text-left">カテゴリ別件数</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={categoryData} layout="vertical" margin={{ left: 20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" />
-                                        <YAxis dataKey="name" type="category" width={80} />
-                                        <Tooltip />
-                                        <Bar dataKey="value" fill="#8884d8" name="件数">
-                                            {categoryData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            {/* 1. Category Chart */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center lg:col-span-2">
+                                <h3 className="text-lg font-bold mb-4 w-full text-left">カテゴリ別件数</h3>
+                                <div className="w-full h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={categoryData} layout="vertical" margin={{ left: 20 }}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis type="number" />
+                                            <YAxis dataKey="name" type="category" width={80} />
+                                            <Tooltip />
+                                            <Bar dataKey="value" fill="#8884d8" name="件数">
+                                                {categoryData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* 2. Priority Chart */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center">
-                            <h3 className="text-lg font-bold mb-4 w-full text-left">優先度別件数</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={priorityData}
-                                            cx="50%"
-                                            cy="50%"
-                                            labelLine={false}
-                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}
-                                            outerRadius={80}
-                                            dataKey="value"
-                                        >
-                                            {priorityData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                        <Legend />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                            {/* 2. Priority Chart */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center">
+                                <h3 className="text-lg font-bold mb-4 w-full text-left">優先度別件数</h3>
+                                <div className="w-full h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={priorityData}
+                                                cx="50%"
+                                                cy="50%"
+                                                labelLine={false}
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}
+                                                outerRadius={80}
+                                                dataKey="value"
+                                            >
+                                                {priorityData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* 3. Month Chart */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 lg:col-span-3">
-                            <h3 className="text-lg font-bold mb-4">月別推移</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={monthData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} name="件数" />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                            {/* 3. Month Chart */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 lg:col-span-3">
+                                <h3 className="text-lg font-bold mb-4">月別推移</h3>
+                                <div className="w-full h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={monthData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Legend />
+                                            <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} name="件数" />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* 4. Time Chart */}
+                            {/* 4. Time Chart */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                                <h3 className="text-lg font-bold mb-4">時間帯別件数</h3>
+                                <div className="w-full h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={timeData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Bar dataKey="value" fill="#82ca9d" name="件数" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* 5. Day Chart */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                                <h3 className="text-lg font-bold mb-4">曜日別件数</h3>
+                                <div className="w-full h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={dayData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Bar dataKey="value" fill="#8884d8" name="件数" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {/* Section 2: Colab Analysis (All Time) */}
+                    <div className="bg-slate-100 border-t border-gray-200 p-6 lg:p-8">
                         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold mb-4">時間帯別件数</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={timeData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="value" fill="#82ca9d" name="件数" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* 5. Day Chart */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold mb-4">曜日別件数</h3>
-                            <div className="w-full h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={dayData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="value" fill="#8884d8" name="件数" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* Spacer for grid alignment if needed */}
-                        <div className="hidden lg:block lg:col-span-1"></div>
-
-
-                        {/* 6. Colab Detailed Analysis Section */}
-                        <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-lg font-bold flex items-center gap-2">
-                                    <Database className="h-5 w-5 text-indigo-600" />
-                                    Colab詳細分析（形態素解析）
-                                </h3>
-                                {colabData && (
-                                    <span className="text-sm text-gray-500">
-                                        最終更新: {new Date(colabData.updated_at).toLocaleString('ja-JP')}
-                                    </span>
-                                )}
+                            <div className="flex flex-col gap-1 mb-6 border-b border-gray-100 pb-4">
+                                <div className="flex justify-between items-start">
+                                    <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                                        <Database className="h-6 w-6 text-indigo-600" />
+                                        Colab詳細分析（形態素解析）
+                                    </h3>
+                                    {colabData && (
+                                        <span className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
+                                            最終更新: {new Date(colabData.updated_at).toLocaleString('ja-JP')}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-sm text-gray-500 ml-8">
+                                    ※全期間のデータに基づく分析です（期間フィルターは適用されません）
+                                </p>
                             </div>
 
                             {loadingColab ? (
