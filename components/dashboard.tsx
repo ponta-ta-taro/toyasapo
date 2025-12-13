@@ -51,7 +51,15 @@ const generateEmailHash = (datetime: string, inquiry: string) => {
     return btoa(unescape(encodeURIComponent(`${datetime}|${inquiry}`))).slice(0, 32);
 };
 
-export function Dashboard() {
+import { User } from "firebase/auth"
+import { LogOut, User as UserIcon } from "lucide-react"
+
+interface DashboardProps {
+    user: User | null;
+    onLogout: () => void;
+}
+
+export function Dashboard({ user, onLogout }: DashboardProps) {
     const [emails, setEmails] = useState<Email[]>([])
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
     const [generatedDraft, setGeneratedDraft] = useState<string>("")
@@ -547,425 +555,458 @@ export function Dashboard() {
     const isReadyToGenerate = (selectedEmailId && selectedEmail) || (isManualInput && manualInquiry.length > 5);
 
     return (
-        <div className="flex h-screen w-full bg-[#f9fafb] text-[#1f2937]">
-            {/* Left Column (w-2/5) */}
-            <div className="w-2/5 flex flex-col border-r border-gray-200 h-full bg-white">
-                <div className="p-6 border-b border-gray-200 flex flex-col gap-4">
-                    <div className="flex justify-between items-center">
-                        <h1 className="text-2xl font-bold">問い合わせメール一覧</h1>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setIsPolicyModalOpen(true)}
-                            className="text-gray-500 hover:text-gray-700"
-                            title="設定"
-                        >
-                            <Settings className="h-6 w-6" />
-                        </Button>
+        <div className="flex flex-col h-screen w-full bg-[#f9fafb] text-[#1f2937]">
+            <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                    <div className="bg-blue-600 text-white p-1.5 rounded-lg">
+                        <Upload className="h-5 w-5" />
                     </div>
-
-                    {/* Add Direct Input Button */}
-                    <Button
-                        variant={isManualInput ? "default" : "outline"}
-                        className={cn("w-full justify-start", isManualInput ? "bg-green-600 hover:bg-green-700" : "text-green-700 border-green-200 bg-green-50")}
-                        onClick={startManualInput}
-                    >
-                        <span className="mr-2 text-lg">+</span> メール直接入力（新規作成）
-                    </Button>
-
-                    {/* Classification Controls */}
-                    <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                            {isClassifying ? (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded text-sm text-slate-600">
-                                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                                    分類中... {classificationProgress?.current}/{classificationProgress?.total}
-                                </div>
-                            ) : (
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-start text-slate-600 hover:text-slate-900 border-slate-300"
-                                    onClick={handleClassify}
-                                    disabled={emails.length === 0}
-                                >
-                                    <Play className="mr-2 h-4 w-4 text-purple-600" />
-                                    AI分類を実行
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Filter & Sort */}
-                    <div className="flex items-center gap-2">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="flex-1 justify-between">
-                                    <div className="flex items-center">
-                                        <Filter className="mr-2 h-3 w-3" />
-                                        {filterCategory || "カテゴリ"}
-                                    </div>
-                                    {filterCategory && <X className="h-3 w-3 ml-2" onClick={(e) => { e.stopPropagation(); setFilterCategory(null); }} />}
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => setFilterCategory(null)}>全て</DropdownMenuItem>
-                                {["予約", "症状相談", "書類", "料金", "クレーム", "その他"].map(cat => (
-                                    <DropdownMenuItem key={cat} onClick={() => setFilterCategory(cat)}>
-                                        {cat}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <Button
-                            variant={isSortingByPriority ? "secondary" : "outline"}
-                            size="sm"
-                            className={cn("flex-1", isSortingByPriority && "bg-blue-50 text-blue-700 border-blue-200")}
-                            onClick={() => setIsSortingByPriority(!isSortingByPriority)}
-                        >
-                            <ArrowUpDown className="mr-2 h-3 w-3" />
-                            優先度順
-                        </Button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="file"
-                            accept=".csv"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleFileUpload}
-                        />
-                        <Button
-                            className="w-full bg-[#3B82F6] hover:bg-[#2563eb] py-4"
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <Upload className="mr-2 h-5 w-5" />
-                            CSVアップロード
-                        </Button>
-                    </div>
+                    <h1 className="font-bold text-lg text-slate-800">ToyasaPo (とやサポ)</h1>
                 </div>
 
-                <ScrollArea className="flex-1">
-                    <div className="flex flex-col">
-                        {derivedEmails.map((email) => (
-                            <div
-                                key={email.id}
-                                className={cn(
-                                    "p-5 border-b border-gray-100 cursor-pointer transition-colors hover:bg-slate-50 relative",
-                                    selectedEmailId === email.id ? "bg-blue-50 hover:bg-blue-50" : "",
-                                    email.classification?.priority === 5 ? "border-l-4 border-l-red-500" : ""
-                                )}
-                                onClick={() => {
-                                    setSelectedEmailId(email.id)
-                                    // Reset manual input mode implicitly via useEffect or logic
-                                }}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-sm text-gray-500 font-medium">
-                                            {formatListDate(email.datetime)}
-                                        </span>
-                                        {email.classification && (
-                                            <div className="flex gap-2 items-center mt-1">
-                                                <Badge variant="outline" className={cn("font-normal border", getCategoryBadgeColor(email.classification.category))}>
-                                                    {email.classification.category}
-                                                </Badge>
-                                                <div className="flex text-yellow-500 text-xs">
-                                                    {Array.from({ length: email.classification.priority }).map((_, i) => (
-                                                        <span key={i}>★</span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                {user && (
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            {user.photoURL ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={user.photoURL} alt={user.displayName || "User"} className="w-8 h-8 rounded-full border border-gray-200" />
+                            ) : (
+                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                    <UserIcon className="h-4 w-4" />
                                 </div>
-                                <p className="text-base text-gray-700 line-clamp-2 leading-relaxed mt-1">
-                                    {email.inquiry}
-                                </p>
+                            )}
+                            <div className="text-sm">
+                                <p className="font-bold text-gray-700">{user.displayName || "ユーザー"}</p>
+                                <p className="text-xs text-gray-500">{user.email}</p>
                             </div>
-                        ))}
-                        {emails.length === 0 && (
-                            <div className="p-8 text-center text-gray-400 text-lg">
-                                メールがありません。<br />CSVアップロードか直接入力を選択してください。
-                            </div>
-                        )}
+                        </div>
+                        <Button variant="outline" size="sm" onClick={onLogout} className="text-gray-600 hover:text-red-600 hover:bg-red-50">
+                            <LogOut className="h-4 w-4 mr-2" />
+                            ログアウト
+                        </Button>
                     </div>
-                </ScrollArea>
-            </div>
-
-            {/* Right Column (w-3/5) */}
-            <div className="w-3/5 flex flex-col h-full bg-[#f9fafb]">
-                {selectedEmail || isManualInput ? (
-                    <div className="flex flex-col h-full">
-                        {/* Detail View Area (Top Half) */}
-                        <div className="h-1/2 p-6 pb-3 flex flex-col">
-                            <Card className="flex-1 flex flex-col overflow-hidden shadow-sm border-gray-200 bg-white">
-                                {isManualInput ? (
-                                    <>
-                                        <div className="p-4 border-b border-green-100 bg-green-50 text-green-800 font-bold">
-                                            メール本文（直接入力）
-                                        </div>
-                                        <Textarea
-                                            className="flex-1 p-6 resize-none border-0 text-lg leading-relaxed focus-visible:ring-0"
-                                            placeholder="ここに返信したいメール本文を貼り付けてください"
-                                            value={manualInquiry}
-                                            onChange={(e) => setManualInquiry(e.target.value)}
-                                        />
-                                    </>
-                                ) : (
-                                    selectedEmail && (
-                                        <>
-                                            <div className="p-6 pb-4 border-b border-gray-100 bg-white">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="text-xl font-bold text-gray-800 mb-1">
-                                                        {selectedEmail.datetime}
-                                                    </div>
-                                                    {selectedEmail.classification && (
-                                                        <div className="flex flex-col items-end gap-1">
-                                                            <Badge variant="outline" className={getCategoryBadgeColor(selectedEmail.classification.category)}>
-                                                                {selectedEmail.classification.category}
-                                                            </Badge>
-                                                            <div className="text-xs text-gray-500">
-                                                                優先度: <span className="font-bold">{selectedEmail.classification.priority}</span>
-                                                                <span className="ml-2 text-gray-400">({selectedEmail.classification.reason})</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <ScrollArea className="flex-1 bg-white">
-                                                <div className="p-8 text-gray-700 leading-relaxed whitespace-pre-wrap text-lg">
-                                                    {selectedEmail.inquiry}
-                                                </div>
-                                            </ScrollArea>
-                                        </>
-                                    )
-                                )}
-                            </Card>
+                )}
+            </header>
+            <div className="flex flex-1 w-full overflow-hidden">
+                {/* Left Column (w-2/5) */}
+                <div className="w-2/5 flex flex-col border-r border-gray-200 h-full bg-white">
+                    <div className="p-6 border-b border-gray-200 flex flex-col gap-4">
+                        <div className="flex justify-between items-center">
+                            <h1 className="text-2xl font-bold">問い合わせメール一覧</h1>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsPolicyModalOpen(true)}
+                                className="text-gray-500 hover:text-gray-700"
+                                title="設定"
+                            >
+                                <Settings className="h-6 w-6" />
+                            </Button>
                         </div>
 
-                        {/* Action Area & Draft (Bottom Half) */}
-                        <div className="h-1/2 px-6 pb-6 pt-0 flex flex-col">
-                            <div className="flex justify-center my-4 shrink-0">
-                                <Button
-                                    size="lg"
-                                    className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-12 py-6 text-xl shadow-md min-w-[320px]"
-                                    onClick={() => handleGenerate(false)}
-                                    disabled={isGenerating || !isReadyToGenerate}
-                                >
-                                    {isGenerating ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                                            生成中...
-                                        </>
-                                    ) : (
-                                        "返信下書きを生成"
-                                    )}
-                                </Button>
-                            </div>
+                        {/* Add Direct Input Button */}
+                        <Button
+                            variant={isManualInput ? "default" : "outline"}
+                            className={cn("w-full justify-start", isManualInput ? "bg-green-600 hover:bg-green-700" : "text-green-700 border-green-200 bg-green-50")}
+                            onClick={startManualInput}
+                        >
+                            <span className="mr-2 text-lg">+</span> メール直接入力（新規作成）
+                        </Button>
 
-                            {/* Draft Area */}
-                            <Card className="flex-1 relative shadow-sm border-gray-200 flex flex-col overflow-hidden bg-white">
-                                <Textarea
-                                    className="flex-1 p-6 resize-none border-0 focus-visible:ring-0 text-lg leading-relaxed"
-                                    placeholder="ここに返信案が生成されます..."
-                                    value={generatedDraft}
-                                    onChange={(e) => {
-                                        setGeneratedDraft(e.target.value)
-                                        setIsDraftSaved(false)
-                                    }}
-                                />
-                                <div className="absolute top-4 right-4 flex gap-2">
+                        {/* Classification Controls */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                                {isClassifying ? (
+                                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded text-sm text-slate-600">
+                                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                        分類中... {classificationProgress?.current}/{classificationProgress?.total}
+                                    </div>
+                                ) : (
                                     <Button
                                         variant="outline"
-                                        size="sm"
-                                        className="bg-white/80 hover:bg-slate-100"
-                                        onClick={handleCopy}
-                                        disabled={!generatedDraft}
+                                        className="w-full justify-start text-slate-600 hover:text-slate-900 border-slate-300"
+                                        onClick={handleClassify}
+                                        disabled={emails.length === 0}
                                     >
-                                        <Copy className="h-4 w-4 mr-2" />
-                                        コピー
+                                        <Play className="mr-2 h-4 w-4 text-purple-600" />
+                                        AI分類を実行
                                     </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Filter & Sort */}
+                        <div className="flex items-center gap-2">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="flex-1 justify-between">
+                                        <div className="flex items-center">
+                                            <Filter className="mr-2 h-3 w-3" />
+                                            {filterCategory || "カテゴリ"}
+                                        </div>
+                                        {filterCategory && <X className="h-3 w-3 ml-2" onClick={(e) => { e.stopPropagation(); setFilterCategory(null); }} />}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={() => setFilterCategory(null)}>全て</DropdownMenuItem>
+                                    {["予約", "症状相談", "書類", "料金", "クレーム", "その他"].map(cat => (
+                                        <DropdownMenuItem key={cat} onClick={() => setFilterCategory(cat)}>
+                                            {cat}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            <Button
+                                variant={isSortingByPriority ? "secondary" : "outline"}
+                                size="sm"
+                                className={cn("flex-1", isSortingByPriority && "bg-blue-50 text-blue-700 border-blue-200")}
+                                onClick={() => setIsSortingByPriority(!isSortingByPriority)}
+                            >
+                                <ArrowUpDown className="mr-2 h-3 w-3" />
+                                優先度順
+                            </Button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="file"
+                                accept=".csv"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleFileUpload}
+                            />
+                            <Button
+                                className="w-full bg-[#3B82F6] hover:bg-[#2563eb] py-4"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <Upload className="mr-2 h-5 w-5" />
+                                CSVアップロード
+                            </Button>
+                        </div>
+                    </div>
+
+                    <ScrollArea className="flex-1">
+                        <div className="flex flex-col">
+                            {derivedEmails.map((email) => (
+                                <div
+                                    key={email.id}
+                                    className={cn(
+                                        "p-5 border-b border-gray-100 cursor-pointer transition-colors hover:bg-slate-50 relative",
+                                        selectedEmailId === email.id ? "bg-blue-50 hover:bg-blue-50" : "",
+                                        email.classification?.priority === 5 ? "border-l-4 border-l-red-500" : ""
+                                    )}
+                                    onClick={() => {
+                                        setSelectedEmailId(email.id)
+                                        // Reset manual input mode implicitly via useEffect or logic
+                                    }}
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm text-gray-500 font-medium">
+                                                {formatListDate(email.datetime)}
+                                            </span>
+                                            {email.classification && (
+                                                <div className="flex gap-2 items-center mt-1">
+                                                    <Badge variant="outline" className={cn("font-normal border", getCategoryBadgeColor(email.classification.category))}>
+                                                        {email.classification.category}
+                                                    </Badge>
+                                                    <div className="flex text-yellow-500 text-xs">
+                                                        {Array.from({ length: email.classification.priority }).map((_, i) => (
+                                                            <span key={i}>★</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="text-base text-gray-700 line-clamp-2 leading-relaxed mt-1">
+                                        {email.inquiry}
+                                    </p>
+                                </div>
+                            ))}
+                            {emails.length === 0 && (
+                                <div className="p-8 text-center text-gray-400 text-lg">
+                                    メールがありません。<br />CSVアップロードか直接入力を選択してください。
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+
+                {/* Right Column (w-3/5) */}
+                <div className="w-3/5 flex flex-col h-full bg-[#f9fafb]">
+                    {selectedEmail || isManualInput ? (
+                        <div className="flex flex-col h-full">
+                            {/* Detail View Area (Top Half) */}
+                            <div className="h-1/2 p-6 pb-3 flex flex-col">
+                                <Card className="flex-1 flex flex-col overflow-hidden shadow-sm border-gray-200 bg-white">
+                                    {isManualInput ? (
+                                        <>
+                                            <div className="p-4 border-b border-green-100 bg-green-50 text-green-800 font-bold">
+                                                メール本文（直接入力）
+                                            </div>
+                                            <Textarea
+                                                className="flex-1 p-6 resize-none border-0 text-lg leading-relaxed focus-visible:ring-0"
+                                                placeholder="ここに返信したいメール本文を貼り付けてください"
+                                                value={manualInquiry}
+                                                onChange={(e) => setManualInquiry(e.target.value)}
+                                            />
+                                        </>
+                                    ) : (
+                                        selectedEmail && (
+                                            <>
+                                                <div className="p-6 pb-4 border-b border-gray-100 bg-white">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="text-xl font-bold text-gray-800 mb-1">
+                                                            {selectedEmail.datetime}
+                                                        </div>
+                                                        {selectedEmail.classification && (
+                                                            <div className="flex flex-col items-end gap-1">
+                                                                <Badge variant="outline" className={getCategoryBadgeColor(selectedEmail.classification.category)}>
+                                                                    {selectedEmail.classification.category}
+                                                                </Badge>
+                                                                <div className="text-xs text-gray-500">
+                                                                    優先度: <span className="font-bold">{selectedEmail.classification.priority}</span>
+                                                                    <span className="ml-2 text-gray-400">({selectedEmail.classification.reason})</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <ScrollArea className="flex-1 bg-white">
+                                                    <div className="p-8 text-gray-700 leading-relaxed whitespace-pre-wrap text-lg">
+                                                        {selectedEmail.inquiry}
+                                                    </div>
+                                                </ScrollArea>
+                                            </>
+                                        )
+                                    )}
+                                </Card>
+                            </div>
+
+                            {/* Action Area & Draft (Bottom Half) */}
+                            <div className="h-1/2 px-6 pb-6 pt-0 flex flex-col">
+                                <div className="flex justify-center my-4 shrink-0">
                                     <Button
-                                        size="sm"
-                                        variant={isDraftSaved ? "secondary" : "default"}
-                                        className={cn("transition-colors", isDraftSaved ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-purple-600 hover:bg-purple-700 text-white")}
-                                        onClick={handleSaveToTraining}
-                                        disabled={!generatedDraft || isDraftSaved}
+                                        size="lg"
+                                        className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-12 py-6 text-xl shadow-md min-w-[320px]"
+                                        onClick={() => handleGenerate(false)}
+                                        disabled={isGenerating || !isReadyToGenerate}
                                     >
-                                        {isDraftSaved ? "保存済み ✓" : "この返信を学習保存"}
+                                        {isGenerating ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                                                生成中...
+                                            </>
+                                        ) : (
+                                            "返信下書きを生成"
+                                        )}
                                     </Button>
                                 </div>
 
-                                {/* Regeneration Area (Inside Draft Card at bottom) */}
-                                {generatedDraft && (
-                                    <div className="p-3 border-t border-gray-100 bg-slate-50 flex items-center gap-2">
-                                        <Textarea
-                                            className="min-h-[40px] h-[40px] resize-none py-2 px-3 text-sm"
-                                            placeholder="追加指示（例：もっと丁寧に、URLを追加して...）"
-                                            value={refineInstructions}
-                                            onChange={(e) => setRefineInstructions(e.target.value)}
-                                        />
+                                {/* Draft Area */}
+                                <Card className="flex-1 relative shadow-sm border-gray-200 flex flex-col overflow-hidden bg-white">
+                                    <Textarea
+                                        className="flex-1 p-6 resize-none border-0 focus-visible:ring-0 text-lg leading-relaxed"
+                                        placeholder="ここに返信案が生成されます..."
+                                        value={generatedDraft}
+                                        onChange={(e) => {
+                                            setGeneratedDraft(e.target.value)
+                                            setIsDraftSaved(false)
+                                        }}
+                                    />
+                                    <div className="absolute top-4 right-4 flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="bg-white/80 hover:bg-slate-100"
+                                            onClick={handleCopy}
+                                            disabled={!generatedDraft}
+                                        >
+                                            <Copy className="h-4 w-4 mr-2" />
+                                            コピー
+                                        </Button>
                                         <Button
                                             size="sm"
-                                            className="shrink-0 bg-slate-700 hover:bg-slate-800 text-white h-[40px]"
-                                            onClick={() => handleGenerate(true)}
-                                            disabled={isGenerating || !refineInstructions.trim()}
+                                            variant={isDraftSaved ? "secondary" : "default"}
+                                            className={cn("transition-colors", isDraftSaved ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-purple-600 hover:bg-purple-700 text-white")}
+                                            onClick={handleSaveToTraining}
+                                            disabled={!generatedDraft || isDraftSaved}
                                         >
-                                            再生成
+                                            {isDraftSaved ? "保存済み ✓" : "この返信を学習保存"}
                                         </Button>
                                     </div>
-                                )}
-                            </Card>
+
+                                    {/* Regeneration Area (Inside Draft Card at bottom) */}
+                                    {generatedDraft && (
+                                        <div className="p-3 border-t border-gray-100 bg-slate-50 flex items-center gap-2">
+                                            <Textarea
+                                                className="min-h-[40px] h-[40px] resize-none py-2 px-3 text-sm"
+                                                placeholder="追加指示（例：もっと丁寧に、URLを追加して...）"
+                                                value={refineInstructions}
+                                                onChange={(e) => setRefineInstructions(e.target.value)}
+                                            />
+                                            <Button
+                                                size="sm"
+                                                className="shrink-0 bg-slate-700 hover:bg-slate-800 text-white h-[40px]"
+                                                onClick={() => handleGenerate(true)}
+                                                disabled={isGenerating || !refineInstructions.trim()}
+                                            >
+                                                再生成
+                                            </Button>
+                                        </div>
+                                    )}
+                                </Card>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-gray-400 text-xl">
+                            左側のリストからメールを選択するか、<br />「メール直接入力」ボタンを押してください
+                        </div>
+                    )}
+                </div>
+
+                {/* Policy Editor Modal */}
+                {isPolicyModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl flex flex-col max-h-[95vh]">
+                            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-bold text-gray-800">設定（返信ポリシー・署名）</h2>
+                                <Button variant="ghost" size="icon" onClick={() => setIsPolicyModalOpen(false)}>
+                                    <X className="h-5 w-5" />
+                                </Button>
+                            </div>
+                            <div className="p-6 flex-1 overflow-auto flex flex-col gap-6">
+
+                                {/* Clinic Info Section */}
+                                <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 flex flex-col gap-4">
+                                    <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                                        🏥 クリニック情報 (AIが参照します)
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label className="mb-1 block text-sm font-medium">予約ページURL</Label>
+                                            <input
+                                                className="w-full px-3 py-2 border rounded text-sm"
+                                                value={reservationUrl}
+                                                onChange={(e) => setReservationUrl(e.target.value)}
+                                                placeholder="https://..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="mb-1 block text-sm font-medium">電話番号</Label>
+                                            <input
+                                                className="w-full px-3 py-2 border rounded text-sm"
+                                                value={phoneNumber}
+                                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                                placeholder="03-xxxx-xxxx"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <Label className="mb-1 block text-sm font-medium">診療時間</Label>
+                                            <input
+                                                className="w-full px-3 py-2 border rounded text-sm"
+                                                value={clinicHours}
+                                                onChange={(e) => setClinicHours(e.target.value)}
+                                                placeholder="月〜土 9:00-18:00 (日祝休)"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <Label className="mb-1 block text-sm font-medium">よく案内する情報 (FAQなど)</Label>
+                                            <Textarea
+                                                className="min-h-[80px] text-sm bg-white"
+                                                value={commonInfo}
+                                                onChange={(e) => setCommonInfo(e.target.value)}
+                                                placeholder="初診は予約必須です、駐車場は3台あります...など"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label className="mb-2 block font-bold text-gray-700">返信ポリシー (System Prompt)</Label>
+                                    <Textarea
+                                        className="w-full font-mono text-sm leading-relaxed min-h-[300px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                                        value={policy}
+                                        onChange={(e) => setPolicy(e.target.value)}
+                                        placeholder="返信ポリシーを入力..."
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="mb-2 block font-bold text-gray-700">署名 (Signature)</Label>
+                                    <Textarea
+                                        className="w-full font-mono text-sm leading-relaxed min-h-[150px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                                        value={signature}
+                                        onChange={(e) => setSignature(e.target.value)}
+                                        placeholder="署名を入力..."
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">※生成された返信の末尾に自動的に付与されます</p>
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
+                                <Button variant="outline" onClick={() => setIsPolicyModalOpen(false)} className="px-6">
+                                    キャンセル
+                                </Button>
+                                <Button className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8" onClick={handleSavePolicy}>
+                                    保存
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400 text-xl">
-                        左側のリストからメールを選択するか、<br />「メール直接入力」ボタンを押してください
+                )}
+
+                {/* CSV Upload Confirmation Modal */}
+                {isUploadModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-md bg-white rounded-lg shadow-xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-bold text-gray-800">データの読み込みオプション</h2>
+                            </div>
+                            <div className="p-6 flex flex-col gap-4">
+                                <p className="text-gray-600">
+                                    既に <span className="font-bold text-gray-900">{emails.length}件</span> のデータが存在します。<br />
+                                    新しく読み込む <span className="font-bold text-gray-900">{pendingUploadEmails.length}件</span> のデータをどのように扱いますか？
+                                </p>
+
+                                <div className="flex flex-col gap-3 mt-2">
+                                    <Button
+                                        className="w-full justify-between h-auto py-3 px-4 bg-blue-600 hover:bg-blue-700"
+                                        onClick={() => handleMergeChoice('append')}
+                                    >
+                                        <div className="flex flex-col items-start">
+                                            <span className="font-bold text-base">追加する (Append)</span>
+                                            <span className="text-xs font-normal text-blue-100">既存のデータに残し、新しいデータを追加します</span>
+                                        </div>
+                                        <span className="text-xl">＋</span>
+                                    </Button>
+
+                                    <Button
+                                        variant="destructive"
+                                        className="w-full justify-between h-auto py-3 px-4 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                                        onClick={() => handleMergeChoice('overwrite')}
+                                    >
+                                        <div className="flex flex-col items-start">
+                                            <span className="font-bold text-base">上書きする (Overwrite)</span>
+                                            <span className="text-xs font-normal text-red-500">既存のデータを全て削除し、入れ替えます</span>
+                                        </div>
+                                        <span className="text-xl">↺</span>
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="p-4 border-t border-gray-200 flex justify-center">
+                                <Button
+                                    variant="ghost"
+                                    className="text-gray-500"
+                                    onClick={() => setIsUploadModalOpen(false)}
+                                >
+                                    キャンセル
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
-
-            {/* Policy Editor Modal */}
-            {isPolicyModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl flex flex-col max-h-[95vh]">
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-bold text-gray-800">設定（返信ポリシー・署名）</h2>
-                            <Button variant="ghost" size="icon" onClick={() => setIsPolicyModalOpen(false)}>
-                                <X className="h-5 w-5" />
-                            </Button>
-                        </div>
-                        <div className="p-6 flex-1 overflow-auto flex flex-col gap-6">
-
-                            {/* Clinic Info Section */}
-                            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 flex flex-col gap-4">
-                                <h3 className="font-bold text-blue-800 flex items-center gap-2">
-                                    🏥 クリニック情報 (AIが参照します)
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label className="mb-1 block text-sm font-medium">予約ページURL</Label>
-                                        <input
-                                            className="w-full px-3 py-2 border rounded text-sm"
-                                            value={reservationUrl}
-                                            onChange={(e) => setReservationUrl(e.target.value)}
-                                            placeholder="https://..."
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="mb-1 block text-sm font-medium">電話番号</Label>
-                                        <input
-                                            className="w-full px-3 py-2 border rounded text-sm"
-                                            value={phoneNumber}
-                                            onChange={(e) => setPhoneNumber(e.target.value)}
-                                            placeholder="03-xxxx-xxxx"
-                                        />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <Label className="mb-1 block text-sm font-medium">診療時間</Label>
-                                        <input
-                                            className="w-full px-3 py-2 border rounded text-sm"
-                                            value={clinicHours}
-                                            onChange={(e) => setClinicHours(e.target.value)}
-                                            placeholder="月〜土 9:00-18:00 (日祝休)"
-                                        />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <Label className="mb-1 block text-sm font-medium">よく案内する情報 (FAQなど)</Label>
-                                        <Textarea
-                                            className="min-h-[80px] text-sm bg-white"
-                                            value={commonInfo}
-                                            onChange={(e) => setCommonInfo(e.target.value)}
-                                            placeholder="初診は予約必須です、駐車場は3台あります...など"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <Label className="mb-2 block font-bold text-gray-700">返信ポリシー (System Prompt)</Label>
-                                <Textarea
-                                    className="w-full font-mono text-sm leading-relaxed min-h-[300px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
-                                    value={policy}
-                                    onChange={(e) => setPolicy(e.target.value)}
-                                    placeholder="返信ポリシーを入力..."
-                                />
-                            </div>
-                            <div>
-                                <Label className="mb-2 block font-bold text-gray-700">署名 (Signature)</Label>
-                                <Textarea
-                                    className="w-full font-mono text-sm leading-relaxed min-h-[150px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
-                                    value={signature}
-                                    onChange={(e) => setSignature(e.target.value)}
-                                    placeholder="署名を入力..."
-                                />
-                                <p className="text-xs text-gray-500 mt-1">※生成された返信の末尾に自動的に付与されます</p>
-                            </div>
-                        </div>
-                        <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
-                            <Button variant="outline" onClick={() => setIsPolicyModalOpen(false)} className="px-6">
-                                キャンセル
-                            </Button>
-                            <Button className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8" onClick={handleSavePolicy}>
-                                保存
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* CSV Upload Confirmation Modal */}
-            {isUploadModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-md bg-white rounded-lg shadow-xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-bold text-gray-800">データの読み込みオプション</h2>
-                        </div>
-                        <div className="p-6 flex flex-col gap-4">
-                            <p className="text-gray-600">
-                                既に <span className="font-bold text-gray-900">{emails.length}件</span> のデータが存在します。<br />
-                                新しく読み込む <span className="font-bold text-gray-900">{pendingUploadEmails.length}件</span> のデータをどのように扱いますか？
-                            </p>
-
-                            <div className="flex flex-col gap-3 mt-2">
-                                <Button
-                                    className="w-full justify-between h-auto py-3 px-4 bg-blue-600 hover:bg-blue-700"
-                                    onClick={() => handleMergeChoice('append')}
-                                >
-                                    <div className="flex flex-col items-start">
-                                        <span className="font-bold text-base">追加する (Append)</span>
-                                        <span className="text-xs font-normal text-blue-100">既存のデータに残し、新しいデータを追加します</span>
-                                    </div>
-                                    <span className="text-xl">＋</span>
-                                </Button>
-
-                                <Button
-                                    variant="destructive"
-                                    className="w-full justify-between h-auto py-3 px-4 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
-                                    onClick={() => handleMergeChoice('overwrite')}
-                                >
-                                    <div className="flex flex-col items-start">
-                                        <span className="font-bold text-base">上書きする (Overwrite)</span>
-                                        <span className="text-xs font-normal text-red-500">既存のデータを全て削除し、入れ替えます</span>
-                                    </div>
-                                    <span className="text-xl">↺</span>
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-gray-200 flex justify-center">
-                            <Button
-                                variant="ghost"
-                                className="text-gray-500"
-                                onClick={() => setIsUploadModalOpen(false)}
-                            >
-                                キャンセル
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }
