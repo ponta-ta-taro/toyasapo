@@ -38,3 +38,11 @@ export interface ClinicSettings {
   commonInfo: string;
   updatedAt?: unknown;
 }
+
+export interface Template {
+  id: string;
+  category: string;
+  pattern: string; // The specific inquiry pattern (e.g. "First visit referral")
+  response: string; // The model answer
+  createdAt: unknown;
+}

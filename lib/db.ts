@@ -1,12 +1,13 @@
 import { db } from './firebase';
-import { collection, addDoc, updateDoc, doc, query, where, orderBy, limit, getDocs, serverTimestamp, setDoc, getDoc, writeBatch } from 'firebase/firestore';
-import { Draft, ClinicSettings, Email } from './types';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit, getDocs, serverTimestamp, setDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { Draft, ClinicSettings, Email, Template } from './types';
 
 // Collection definitions
 const DRAFTS_COLLECTION = 'drafts';
 const POLICIES_COLLECTION = 'policies';
 const SETTINGS_COLLECTION = 'settings';
 const EMAILS_COLLECTION = 'emails';
+const TEMPLATES_COLLECTION = 'templates';
 const DEFAULT_SETTINGS_DOC = 'default';
 
 /**
@@ -224,5 +225,65 @@ export async function updateEmail(email: Email) {
         });
     } catch (e) {
         console.error("Failed to update email:", e);
+    }
+}
+/**
+ * Save new template
+ */
+export async function saveTemplate(data: Omit<Template, 'id' | 'createdAt'>) {
+    if (!db) return null;
+    try {
+        const docRef = await addDoc(collection(db, TEMPLATES_COLLECTION), {
+            ...data,
+            createdAt: serverTimestamp(),
+        });
+        return docRef.id;
+    } catch (e) {
+        console.error("Failed to save template:", e);
+        return null;
+    }
+}
+
+/**
+ * Get all templates
+ */
+export async function getTemplates(): Promise<Template[]> {
+    if (!db) return [];
+    try {
+        const q = query(collection(db, TEMPLATES_COLLECTION), orderBy("category", "asc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Template));
+    } catch (e) {
+        console.error("Failed to get templates:", e);
+        return [];
+    }
+}
+
+/**
+ * Update template
+ */
+export async function updateTemplate(id: string, data: Partial<Template>) {
+    if (!db) return;
+    try {
+        const docRef = doc(db, TEMPLATES_COLLECTION, id);
+        await updateDoc(docRef, data);
+    } catch (e) {
+        console.error("Failed to update template:", e);
+    }
+}
+
+/**
+ * Delete template
+ */
+export async function deleteTemplate(id: string) {
+    if (!db) return;
+    try {
+        const docRef = doc(db, TEMPLATES_COLLECTION, id);
+        await deleteDoc(docRef);
+    } catch (e) {
+        console.error("Failed to delete template:", e);
     }
 }

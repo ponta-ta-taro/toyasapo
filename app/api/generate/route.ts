@@ -8,7 +8,7 @@ const anthropic = new Anthropic({
 
 export async function POST(req: Request) {
     try {
-        const { inquiry, policy, pastResponses, mode, currentDraft, instructions, clinicInfo } = await req.json();
+        const { inquiry, policy, pastResponses, templates, mode, currentDraft, instructions, clinicInfo } = await req.json();
 
         // Construct Clinic Info System Prompt
         let clinicInfoPrompt = "";
@@ -40,6 +40,15 @@ export async function POST(req: Request) {
 - 緊急性が感じられる場合（「死にたい」など）は、必要に応じて地域の救急相談窓口や救急車の利用を促す文言を含めてください。
 - 署名は含めないでください（本文のみ作成）。
 - 簡潔で分かりやすい文章構成`) + clinicInfoPrompt;
+
+        // Append Templates (Model Answers) - High Priority
+        if (templates && Array.isArray(templates) && templates.length > 0) {
+            systemPrompt += `\n\n【模範回答（テンプレート）】\nこの問い合わせに関連する模範的な回答パターンです。以下のトーンや構成を強く意識して返信を作成してください。\n`;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            templates.forEach((t: any, index: number) => {
+                systemPrompt += `\n模範回答${index + 1} (${t.pattern}):\n${t.response}\n`;
+            });
+        }
 
         // Append Few-Shot examples if available (only for Create mode or if relevant context)
         // For refinement, we might prioritize the user's explicit instruction, but keeping examples doesn't hurt.

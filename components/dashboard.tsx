@@ -1,14 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect, useMemo } from "react"
-import { Email, Classification } from "@/lib/types"
+import { Email, Classification, Template } from "@/lib/types"
 import Papa from "papaparse"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, ArrowUpDown, BookOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,7 +17,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails } from "@/lib/db"
+import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates } from "@/lib/db"
+import { TemplateManager } from "@/components/template-manager"
 
 import { Label } from "@/components/ui/label"
 
@@ -95,6 +96,10 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
     const [pendingUploadEmails, setPendingUploadEmails] = useState<Email[]>([])
 
+    // Template State
+    const [templates, setTemplates] = useState<Template[]>([])
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+
     // Reset states when switching emails
     useEffect(() => {
         if (selectedEmailId) {
@@ -162,6 +167,19 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             }
         };
         loadEmails();
+    }, []);
+
+    // Load Templates
+    useEffect(() => {
+        const loadTemplatesFunc = async () => {
+            try {
+                const t = await getTemplates();
+                setTemplates(t);
+            } catch (e) {
+                console.error("Failed to load templates:", e);
+            }
+        };
+        loadTemplatesFunc();
     }, []);
 
     // Load cached classifications on email load
@@ -402,6 +420,12 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         try {
             const pastResponses = await getApprovedDrafts(5);
 
+            // Filter templates based on current email category
+            const currentCategory = isManualInput ? null : selectedEmail?.classification?.category;
+            const relevantTemplates = currentCategory
+                ? templates.filter(t => t.category === currentCategory)
+                : [];
+
             const res = await fetch("/api/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -409,6 +433,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     inquiry: inquiryText,
                     policy: policy,
                     pastResponses,
+                    templates: relevantTemplates, // Add templates to payload
                     mode: isRefine ? "refine" : "create",
                     currentDraft: isRefine ? generatedDraft : undefined,
                     instructions: isRefine ? refineInstructions : undefined,
@@ -593,15 +618,26 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     <div className="p-6 border-b border-gray-200 flex flex-col gap-4">
                         <div className="flex justify-between items-center">
                             <h1 className="text-2xl font-bold">問い合わせメール一覧</h1>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setIsPolicyModalOpen(true)}
-                                className="text-gray-500 hover:text-gray-700"
-                                title="設定"
-                            >
-                                <Settings className="h-6 w-6" />
-                            </Button>
+                            <div className="flex gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsTemplateModalOpen(true)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                    title="模範回答管理"
+                                >
+                                    <BookOpen className="h-6 w-6" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsPolicyModalOpen(true)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                    title="設定"
+                                >
+                                    <Settings className="h-6 w-6" />
+                                </Button>
+                            </div>
                         </div>
 
                         {/* Add Direct Input Button */}
@@ -1007,6 +1043,8 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     </div>
                 )}
             </div>
+            {/* Template Manager Modal */}
+            <TemplateManager isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} />
         </div>
     )
 }
