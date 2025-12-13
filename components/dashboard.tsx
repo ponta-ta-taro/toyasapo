@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X, Play, Filter, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, Mail, Search, SortDesc, Trash2, Undo2, Ban, RefreshCw } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, Mail, Search, Trash2, Undo2, Ban, RefreshCw, AlertCircle, Clock, ListFilter } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import {
@@ -804,183 +804,190 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 </div>
             </header>
             <div className="flex flex-1 overflow-hidden">
-                {/* Left Column：問い合わせ一覧 (w-[400px]) */}
+                {/* Left Column：問い合わせ一覧 (w-[400px]) - Refactored based on Figma */}
                 <div className="w-[400px] bg-blue-50 border-r-2 border-blue-200 flex flex-col shrink-0">
                     <div className="p-4 border-b-2 border-blue-300 bg-blue-100">
                         <h2 className="text-blue-900 font-bold text-lg">問い合わせ一覧</h2>
                     </div>
 
-                    {/* Action Area */}
-                    <div className="p-3 space-y-2 border-b-2 border-blue-200 bg-white">
-                        {/* Classification Status */}
-                        {isClassifying && (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded text-sm text-slate-600 mb-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                                分類中... {classificationProgress?.current}/{classificationProgress?.total}
-                            </div>
-                        )}
+                    <div className="flex-1 overflow-y-auto">
+                        {/* アクションボタンエリア */}
+                        <div className="p-3 space-y-2 border-b-2 border-blue-200 bg-white">
+                            {/* Classification Status */}
+                            {isClassifying && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded text-sm text-slate-600 mb-2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                    分類中... {classificationProgress?.current}/{classificationProgress?.total}
+                                </div>
+                            )}
 
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={handleImportGmail}
-                                disabled={isGmailLoading}
-                                className={cn("flex-1 bg-white hover:bg-red-50 text-red-600 shadow-md border border-red-200 h-10")}
-                            >
-                                {isGmailLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
-                                Gmail取込
-                            </Button>
-                            <Button
-                                onClick={startManualInput}
-                                className={cn("flex-1 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md border-0 h-10")}
-                            >
-                                <Plus className="mr-2 h-4 w-4" /> 新規作成
-                            </Button>
+                            {/* 上段：Gmail取り込み + 新規作成 */}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleImportGmail}
+                                    disabled={isGmailLoading}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 border-2 border-red-400 rounded-lg transition-colors text-red-600 shadow-sm disabled:opacity-50"
+                                >
+                                    {isGmailLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                                    <span className="text-sm">Gmail取込</span>
+                                </button>
+                                <button
+                                    onClick={startManualInput}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 rounded-lg transition-all text-white shadow-md"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    <span className="text-sm">新規作成</span>
+                                </button>
 
-                            <input
-                                type="file"
-                                accept=".csv"
-                                ref={fileInputRef}
-                                className="hidden"
-                                onChange={handleFileUpload}
-                            />
-                            <Button
-                                variant="outline"
-                                className="border-blue-300 text-blue-700 hover:bg-blue-50 h-10 w-10 p-0 shadow-md"
-                                onClick={() => fileInputRef.current?.click()}
-                                title="CSV取込"
-                            >
-                                <Upload className="h-5 w-5" />
-                            </Button>
-                        </div>
-
-                        <div className="flex gap-2">
-                            {/* Search */}
-                            <div className="relative flex-1">
-                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                                {/* CSV Upload Trigger (using SlidersHorizontal icon as placeholder for "More Actions" / Upload) */}
                                 <input
-                                    placeholder="検索..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-8 pr-2 h-10 text-sm border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm"
+                                    type="file"
+                                    accept=".csv"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    onChange={handleFileUpload}
                                 />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white hover:bg-gray-50 border-2 border-gray-300 rounded-lg transition-colors text-gray-600 shadow-sm"
+                                    title="CSV取込"
+                                >
+                                    <Upload className="w-4 h-4" />
+                                </button>
                             </div>
 
-                            {/* Sort */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-blue-300 text-blue-600 hover:bg-blue-50">
-                                        <SortDesc className="h-5 w-5" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setSortOption('date-desc')}>
-                                        {sortOption === 'date-desc' && <Check className="w-4 h-4 mr-2" />}
-                                        日付 (新しい順)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setSortOption('date-asc')}>
-                                        {sortOption === 'date-asc' && <Check className="w-4 h-4 mr-2" />}
-                                        日付 (古い順)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setSortOption('priority-desc')}>
-                                        {sortOption === 'priority-desc' && <Check className="w-4 h-4 mr-2" />}
-                                        優先度 (高い順)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setSortOption('priority-asc')}>
-                                        {sortOption === 'priority-asc' && <Check className="w-4 h-4 mr-2" />}
-                                        優先度 (低い順)
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            {/* 中段：検索窓 + フィルターボタン */}
+                            <div className="flex gap-2">
+                                <div className="flex-1 relative">
+                                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="検索..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full pl-10 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
 
-                            {/* Filter */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="icon" className={cn("h-10 w-10 shrink-0 border-blue-300 text-blue-600 hover:bg-blue-50", (filterCategories.length > 0 || filterPriorities.length > 0 || filterDateRange !== 'all' || filterNewOnly) && "bg-blue-100 ring-2 ring-blue-300")}>
-                                        <Filter className="h-5 w-5" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                    <DropdownMenuLabel>絞り込み</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => setFilterNewOnly(!filterNewOnly)}>
-                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", filterNewOnly ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
-                                            <Check className={cn("h-4 w-4")} />
-                                        </div>
-                                        <span>新着（未処理）のみ</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => {
-                                        setFilterTrash(!filterTrash);
-                                        // Reset other filters when entering/exiting trash mode to avoid confusion?
-                                        // keeping it simple for now
-                                    }}>
-                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", filterTrash ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
-                                            <Check className={cn("h-4 w-4")} />
-                                        </div>
-                                        <span>ゴミ箱 (削除済み)</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuLabel>日付範囲</DropdownMenuLabel>
-                                    {(['all', 'today', 'week', 'month'] as const).map((range) => (
-                                        <DropdownMenuItem key={range} onClick={() => setFilterDateRange(range)}>
-                                            {filterDateRange === range && <Check className="w-4 h-4 mr-2" />}
-                                            {range === 'all' && 'すべて'}
-                                            {range === 'today' && '今日'}
-                                            {range === 'week' && '今週'}
-                                            {range === 'month' && '今月'}
+                                {/* Filter Menu Trigger */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className={cn("flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-blue-50 border-2 border-blue-400 rounded-lg transition-colors text-blue-600 shadow-sm", (filterCategories.length > 0 || filterPriorities.length > 0 || filterDateRange !== 'all' || filterNewOnly) && "bg-blue-100 ring-2 ring-blue-300")}>
+                                            <Filter className="w-4 h-4" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuLabel>絞り込み</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => setFilterNewOnly(!filterNewOnly)}>
+                                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", filterNewOnly ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                <Check className={cn("h-4 w-4")} />
+                                            </div>
+                                            <span>新着（未処理）のみ</span>
                                         </DropdownMenuItem>
-                                    ))}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuLabel>カテゴリ</DropdownMenuLabel>
-                                    {["予約", "症状相談", "書類", "料金", "クレーム", "その他"].map(cat => (
+                                        <DropdownMenuItem onClick={() => setFilterTrash(!filterTrash)}>
+                                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", filterTrash ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                <Check className={cn("h-4 w-4")} />
+                                            </div>
+                                            <span>ゴミ箱 (削除済み)</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuLabel>日付範囲</DropdownMenuLabel>
+                                        {(['all', 'today', 'week', 'month'] as const).map((range) => (
+                                            <DropdownMenuItem key={range} onClick={() => setFilterDateRange(range)}>
+                                                {filterDateRange === range && <Check className="w-4 h-4 mr-2" />}
+                                                {range === 'all' && 'すべて'}
+                                                {range === 'today' && '今日'}
+                                                {range === 'week' && '今週'}
+                                                {range === 'month' && '今月'}
+                                            </DropdownMenuItem>
+                                        ))}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuLabel>カテゴリ</DropdownMenuLabel>
+                                        {["予約", "症状相談", "書類", "料金", "クレーム", "その他"].map(cat => (
+                                            <DropdownMenuCheckboxItem
+                                                key={cat}
+                                                checked={filterCategories.includes(cat)}
+                                                onCheckedChange={(checked) => setFilterCategories(checked ? [...filterCategories, cat] : filterCategories.filter(c => c !== cat))}
+                                            >
+                                                {cat}
+                                            </DropdownMenuCheckboxItem>
+                                        ))}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuLabel>優先度</DropdownMenuLabel>
                                         <DropdownMenuCheckboxItem
-                                            key={cat}
-                                            checked={filterCategories.includes(cat)}
-                                            onCheckedChange={(checked) => setFilterCategories(checked ? [...filterCategories, cat] : filterCategories.filter(c => c !== cat))}
+                                            checked={filterPriorities.includes(5)}
+                                            onCheckedChange={(checked) => setFilterPriorities(checked ? [...filterPriorities, 5] : filterPriorities.filter(p => p !== 5))}
                                         >
-                                            {cat}
+                                            最高 (5)
                                         </DropdownMenuCheckboxItem>
-                                    ))}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuLabel>優先度</DropdownMenuLabel>
-                                    <DropdownMenuCheckboxItem
-                                        checked={filterPriorities.includes(5)}
-                                        onCheckedChange={(checked) => setFilterPriorities(checked ? [...filterPriorities, 5] : filterPriorities.filter(p => p !== 5))}
-                                    >
-                                        最高 (5)
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={filterPriorities.includes(4)}
-                                        onCheckedChange={(checked) => setFilterPriorities(checked ? [...filterPriorities, 4] : filterPriorities.filter(p => p !== 4))}
-                                    >
-                                        高 (4)
-                                    </DropdownMenuCheckboxItem>
-                                    {/* Add more if needed, simplistic for now */}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                        <DropdownMenuCheckboxItem
+                                            checked={filterPriorities.includes(4)}
+                                            onCheckedChange={(checked) => setFilterPriorities(checked ? [...filterPriorities, 4] : filterPriorities.filter(p => p !== 4))}
+                                        >
+                                            高 (4)
+                                        </DropdownMenuCheckboxItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
 
-                            {/* Classify */}
-                            <Button
-                                onClick={handleClassify}
-                                disabled={emails.length === 0 || isClassifying}
-                                size="icon"
-                                className={cn("h-10 w-10 shrink-0 bg-blue-600 hover:bg-blue-700 text-white shadow-md border-0")}
-                                title="AI分類"
-                            >
-                                <Play className="h-5 w-5" />
-                            </Button>
+                                {/* Sort Menu Trigger - Using SlidersHorizontal/ListFilter generic icon */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className="flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-blue-50 border-2 border-blue-400 rounded-lg transition-colors text-blue-600 shadow-sm">
+                                            <ListFilter className="w-4 h-4" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setSortOption('date-desc')}>
+                                            {sortOption === 'date-desc' && <Check className="w-4 h-4 mr-2" />}
+                                            日付 (新しい順)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortOption('date-asc')}>
+                                            {sortOption === 'date-asc' && <Check className="w-4 h-4 mr-2" />}
+                                            日付 (古い順)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortOption('priority-desc')}>
+                                            {sortOption === 'priority-desc' && <Check className="w-4 h-4 mr-2" />}
+                                            優先度 (高い順)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortOption('priority-asc')}>
+                                            {sortOption === 'priority-asc' && <Check className="w-4 h-4 mr-2" />}
+                                            優先度 (低い順)
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                {/* AI Classify Trigger */}
+                                <button
+                                    onClick={handleClassify}
+                                    disabled={emails.length === 0 || isClassifying}
+                                    className="flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all text-white shadow-md disabled:opacity-50"
+                                >
+                                    <Play className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <ScrollArea className="flex-1 bg-blue-50">
+                        {/* 問い合わせリスト */}
                         <div className="p-3 space-y-2">
                             {derivedEmails.map((email) => {
                                 const isSelected = selectedEmailId === email.id;
                                 const priority = email.classification?.priority || 1;
-                                // Priority Styles
-                                let pStyles = { bg: "bg-green-50", border: "border-green-200", text: "text-green-700", label: "低" };
-                                if (priority >= 4) pStyles = { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", label: "高" };
-                                else if (priority >= 3) pStyles = { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-700", label: "中" };
+
+                                // Priority Configuration Logic
+                                let config = {
+                                    bg: 'bg-green-50',
+                                    border: 'border-green-200',
+                                    text: 'text-green-700',
+                                    label: '低',
+                                    icon: Clock
+                                };
+                                if (priority >= 4) { // High (4, 5)
+                                    config = { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', label: '高', icon: AlertCircle };
+                                } else if (priority === 3) { // Medium (3)
+                                    config = { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', label: '中', icon: Clock };
+                                }
+                                const Icon = config.icon;
 
                                 return (
                                     <button
@@ -990,65 +997,68 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                             setIsManualInput(false);
                                         }}
                                         className={cn(
-                                            "w-full h-[180px] p-4 rounded-lg text-left transition-all relative group border-2 flex flex-col justify-between overflow-hidden",
+                                            "w-full p-4 rounded-lg text-left transition-all",
                                             isSelected
-                                                ? "bg-white shadow-lg border-blue-500 ring-2 ring-blue-100 z-10"
-                                                : "bg-white hover:bg-blue-50 border-transparent hover:border-blue-200 shadow-sm"
+                                                ? 'bg-white shadow-lg border-2 border-teal-400 ring-2 ring-teal-200'
+                                                : 'bg-white hover:bg-blue-50 border-2 border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md'
                                         )}
                                     >
-                                        <div className="w-full overflow-hidden">
-                                            {/* Top Row: Date & Priority */}
-                                            <div className="flex justify-between items-center text-xs text-gray-500 mb-2 shrink-0">
-                                                <span className="font-mono whitespace-nowrap">{email.datetime}</span>
-                                                <span className={cn("px-2 py-0.5 rounded text-xs border font-medium flex items-center gap-1 whitespace-nowrap", pStyles.bg, pStyles.text, pStyles.border)}>
-                                                    {priority >= 5 && <Loader2 className="w-3 h-3 animate-pulse" />}
-                                                    優先度: {pStyles.label}
-                                                </span>
-                                            </div>
+                                        <div className="flex items-start gap-3">
+                                            {/* 優先度インジケーター */}
+                                            <div className={cn("flex-shrink-0 w-1.5 h-full rounded-full min-h-[4rem]", isSelected ? 'bg-teal-500' : config.bg.replace('bg-', 'bg-').replace('-50', '-500'))} />
 
-                                            {/* Middle Row: Title (Inquiry Start) */}
-                                            <div
-                                                className={cn("font-bold text-lg leading-tight mb-2 truncate", isSelected ? "text-blue-700" : "text-gray-800")}
-                                                title={email.inquiry}
-                                            >
-                                                {email.inquiry}
-                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                {/* 日時と優先度 */}
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-gray-500 text-xs font-mono">{email.datetime}</span>
+                                                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border", config.bg, config.text, config.border)}>
+                                                        <Icon className="w-3 h-3" />
+                                                        優先度: {config.label}
+                                                    </span>
+                                                    {priority >= 5 && <Loader2 className="w-3 h-3 animate-pulse text-red-500" />}
+                                                </div>
 
-                                            {/* Badges Row */}
-                                            <div className="flex flex-wrap gap-2 items-center mb-2 shrink-0 h-[24px] overflow-hidden">
-                                                {email.classification?.category && (
-                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs border border-blue-200 whitespace-nowrap">
-                                                        {email.classification.category}
-                                                    </span>
-                                                )}
-                                                {email.response && (
-                                                    <span className="flex items-center gap-1 text-green-600 text-xs font-bold whitespace-nowrap">
-                                                        <Check className="w-3 h-3" /> 下書き生成済み
-                                                    </span>
-                                                )}
-                                                {email.source === 'gmail' && !email.isProcessed && (
-                                                    <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded font-bold animate-pulse whitespace-nowrap">
-                                                        NEW
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
+                                                {/* 件名 */}
+                                                <div className={cn("mb-2 truncate font-bold", isSelected ? 'text-gray-900' : 'text-gray-800')}>
+                                                    {email.inquiry.slice(0, 100) || "件名なし"}
+                                                </div>
 
-                                        {/* Bottom Row: Preview Text */}
-                                        <div className="text-xs text-gray-500 line-clamp-3 leading-relaxed overflow-hidden">
-                                            {email.inquiry}
+                                                {/* カテゴリ */}
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    {email.classification?.category && (
+                                                        <span className="inline-block px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md text-xs border border-blue-200 whitespace-nowrap">
+                                                            {email.classification.category}
+                                                        </span>
+                                                    )}
+                                                    {email.response && (
+                                                        <span className="inline-flex items-center gap-1 text-xs text-teal-600 font-medium whitespace-nowrap">
+                                                            <Check className="w-3 h-3" />
+                                                            下書き生成済み
+                                                        </span>
+                                                    )}
+                                                    {email.source === 'gmail' && !email.isProcessed && (
+                                                        <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded font-bold animate-pulse whitespace-nowrap">
+                                                            NEW
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* 内容のプレビュー */}
+                                                <p className="text-gray-600 text-xs leading-relaxed line-clamp-2">
+                                                    {email.inquiry}
+                                                </p>
+                                            </div>
                                         </div>
                                     </button>
                                 );
                             })}
-
                             {emails.length === 0 && (
                                 <div className="p-8 text-center text-gray-400 text-sm">
-                                    メールがありません。<br />CSVアップロードか直接入力を選択してください。
+                                    メールがありません。<br />CSVアップロードか取込を行ってください。
                                 </div>
                             )}
                         </div>
-                    </ScrollArea>
+                    </div>
                 </div>
 
                 {/* Main Content Area (Layout) */}
