@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import { Email, Classification, Template } from "@/lib/types"
@@ -40,11 +40,11 @@ const DEFAULT_POLICY = `あなたは「とやのメンタルクリニック」�
 【返信ポリシー】
 
 メールで診断や治療方針の確定はしない。無診察診療に該当する内容は避ける
-薬休職診断書の可否をメールで判断しない。診察時の相談に誘導する
+薬・休職・診断書の可否をメールで判断しない。診察時の相談に誘導する
 初診/紹介状の案内は明確に。必要なら「紹介状を持参してください」と伝える
 未成年の場合、受け入れ可否と心理検査の制限を案内し、必要なら小児精神科の可能性に言及
 希死念慮/強い危険が疑われる場合は、救急案内や相談窓口を促す文を含める
-トーン：まず共感次に案内。優しいが事務的に明確な文体
+トーン：まず共感→次に案内。優しいが事務的に明確な文体
 
 【返信テンプレート構造】
 
@@ -499,6 +499,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
             // Reset saved status since content changed
             setIsDraftSaved(false);
+            ;
 
             toast.success(isRefine ? "返信を再生成しました" : "返信下書きを生成しました");
 
@@ -594,7 +595,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 phoneNumber,
                 commonInfo
             });
-            toast.success("設定を保存共有しました")
+            toast.success("設定を保存・共有しました")
         } catch (e) {
             console.error(e)
             toast.warning("設定は保存されましたが、共有に失敗しました")
@@ -733,7 +734,6 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         return result;
     }, [emails, searchQuery, filterCategories, filterPriorities, filterDateRange, filterNewOnly, sortOption, filterTrash]);
 
-    // Alias for backward compatibility
     const derivedEmails = filteredEmails;
     const selectedEmail = emails.find(e => e.id === selectedEmailId);
 
@@ -990,53 +990,51 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                             setIsManualInput(false);
                                         }}
                                         className={cn(
-                                            "w-full h-[180px] p-4 rounded-lg text-left transition-all relative group border-2 flex flex-col justify-between overflow-hidden",
+                                            "w-full p-4 rounded-lg text-left transition-all relative group border-2",
                                             isSelected
                                                 ? "bg-white shadow-lg border-blue-500 ring-2 ring-blue-100 z-10"
                                                 : "bg-white hover:bg-blue-50 border-transparent hover:border-blue-200 shadow-sm"
                                         )}
                                     >
-                                        <div className="w-full overflow-hidden">
+                                        <div className="flex flex-col gap-2">
                                             {/* Top Row: Date & Priority */}
-                                            <div className="flex justify-between items-center text-xs text-gray-500 mb-2 shrink-0">
-                                                <span className="font-mono whitespace-nowrap">{email.datetime}</span>
-                                                <span className={cn("px-2 py-0.5 rounded text-xs border font-medium flex items-center gap-1 whitespace-nowrap", pStyles.bg, pStyles.text, pStyles.border)}>
-                                                    {priority >= 5 && <Loader2 className="w-3 h-3 animate-pulse" />}
+                                            <div className="flex justify-between items-center text-xs text-gray-500">
+                                                <span className="font-mono">{email.datetime}</span>
+                                                <span className={cn("px-2 py-0.5 rounded text-xs border font-medium", pStyles.bg, pStyles.text, pStyles.border)}>
                                                     優先度: {pStyles.label}
                                                 </span>
                                             </div>
 
                                             {/* Middle Row: Title (Inquiry Start) */}
-                                            <div
-                                                className={cn("font-bold text-lg leading-tight mb-2 truncate", isSelected ? "text-blue-700" : "text-gray-800")}
-                                                title={email.inquiry}
-                                            >
-                                                {email.inquiry}
+                                            <div className={cn("font-bold text-base truncate", isSelected ? "text-blue-700" : "text-gray-800")}>
+                                                {email.inquiry.slice(0, 40) || "件名なし"}...
                                             </div>
 
-                                            {/* Badges Row */}
-                                            <div className="flex flex-wrap gap-2 items-center mb-2 shrink-0 h-[24px] overflow-hidden">
-                                                {email.classification?.category && (
-                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs border border-blue-200 whitespace-nowrap">
-                                                        {email.classification.category}
-                                                    </span>
-                                                )}
-                                                {email.response && (
-                                                    <span className="flex items-center gap-1 text-green-600 text-xs font-bold whitespace-nowrap">
-                                                        <Check className="w-3 h-3" /> 下書き生成済み
-                                                    </span>
-                                                )}
-                                                {email.source === 'gmail' && !email.isProcessed && (
-                                                    <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded font-bold animate-pulse whitespace-nowrap">
-                                                        NEW
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
+                                            {/* Bottom Row: Badges, Status, Preview */}
+                                            <div className="space-y-2">
+                                                <div className="flex flex-wrap gap-2 items-center">
+                                                    {email.classification?.category && (
+                                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs border border-blue-200">
+                                                            {email.classification.category}
+                                                        </span>
+                                                    )}
+                                                    {email.response && (
+                                                        <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
+                                                            <Check className="w-3 h-3" /> 下書き済
+                                                        </span>
+                                                    )}
+                                                    {email.source === 'gmail' && !email.isProcessed && (
+                                                        <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded font-bold animate-pulse">
+                                                            NEW
+                                                        </span>
+                                                    )}
+                                                </div>
 
-                                        {/* Bottom Row: Preview Text */}
-                                        <div className="text-xs text-gray-500 line-clamp-3 leading-relaxed overflow-hidden">
-                                            {email.inquiry}
+                                                {/* Preview Text */}
+                                                <div className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
+                                                    {email.inquiry}
+                                                </div>
+                                            </div>
                                         </div>
                                     </button>
                                 );
@@ -1170,13 +1168,13 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                         <ScrollArea className="flex-1 p-4">
                                             {isManualInput ? (
                                                 <Textarea
-                                                    className="w-full min-h-[400px] resize-none border-0 text-[16px] leading-[1.8] focus-visible:ring-0 p-0"
+                                                    className="w-full min-h-[400px] resize-none border-0 text-base leading-relaxed focus-visible:ring-0 p-0"
                                                     placeholder="ここに問い合わせ内容を入力または貼り付けてください..."
                                                     value={manualInquiry}
                                                     onChange={(e) => setManualInquiry(e.target.value)}
                                                 />
                                             ) : (
-                                                <div className="text-gray-800 leading-[1.8] whitespace-pre-wrap text-[16px]">
+                                                <div className="text-gray-800 leading-relaxed whitespace-pre-wrap text-base">
                                                     {selectedEmail?.inquiry}
                                                 </div>
                                             )}
@@ -1199,8 +1197,8 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                     onClick={() => handleGenerate(false)}
                                                     disabled={isGenerating || !isReadyToGenerate}
                                                 >
-                                                    <Sparkles className="w-3 h-3" />
-                                                    {isGenerating ? "生成中..." : "AI生成"}
+                                                    {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                                    AI生成
                                                 </Button>
                                                 <Button
                                                     size="sm"
@@ -1234,7 +1232,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                 </div>
                                             )}
                                             <Textarea
-                                                className="flex-1 w-full h-full resize-none border-0 p-4 text-[16px] leading-[1.8] focus-visible:ring-0 font-mono"
+                                                className="flex-1 w-full h-full resize-none border-0 p-4 text-base leading-relaxed focus-visible:ring-0 font-mono"
                                                 placeholder="AI生成ボタンを押すと、ここに返信案が作成されます。"
                                                 value={generatedDraft}
                                                 onChange={(e) => setGeneratedDraft(e.target.value)}
@@ -1242,7 +1240,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                         </div>
                                         <div className="p-2 border-t bg-gray-50 flex gap-2 items-center">
                                             <Textarea
-                                                className="flex-1 min-h-[44px] h-[44px] resize-none py-2 px-3 text-[15px] bg-white border-gray-300"
+                                                className="flex-1 min-h-[44px] h-[44px] resize-none py-2 px-3 text-base bg-white border-gray-300"
                                                 placeholder="追加指示（例：もっと丁寧に、URLを追記して...）"
                                                 value={refineInstructions}
                                                 onChange={(e) => setRefineInstructions(e.target.value)}
@@ -1260,207 +1258,211 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             </div>
                         </div>
 
-                    ) : (
-                        <div className="flex-1 flex items-center justify-center text-gray-400">
-                            <div className="text-center">
-                                <p className="text-xl mb-2">問い合わせを選択してください</p>
-                                <p className="text-sm">左側のリストから選択するか、新規作成を行ってください</p>
-                            </div>
                         </div>
-                    )}
+
+
+                ) : (
+                <div className="flex-1 flex items-center justify-center text-gray-400">
+                    <div className="text-center">
+                        <p className="text-xl mb-2">問い合わせを選択してください</p>
+                        <p className="text-sm">左側のリストから選択するか、新規作成を行ってください</p>
+                    </div>
                 </div>
+                    )}
+            </div >
 
-                {/* Policy Editor Modal */}
-                {
-                    isPolicyModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                            <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl flex flex-col max-h-[95vh]">
-                                <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                                    <h2 className="text-xl font-bold text-gray-800">設定（返信ポリシー署名）</h2>
-                                    <Button variant="ghost" size="icon" onClick={() => setIsPolicyModalOpen(false)}>
-                                        <X className="h-5 w-5" />
-                                    </Button>
-                                </div>
-                                <div className="p-6 flex-1 overflow-auto flex flex-col gap-6">
+            {/* Policy Editor Modal */}
+            {
+                isPolicyModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl flex flex-col max-h-[95vh]">
+                            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-bold text-gray-800">設定（返信ポリシー・署名）</h2>
+                                <Button variant="ghost" size="icon" onClick={() => setIsPolicyModalOpen(false)}>
+                                    <X className="h-5 w-5" />
+                                </Button>
+                            </div>
+                            <div className="p-6 flex-1 overflow-auto flex flex-col gap-6">
 
-                                    {/* Clinic Info Section */}
-                                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 flex flex-col gap-4">
-                                        <h3 className="font-bold text-blue-800 flex items-center gap-2">
-                                            クリニック情報 (AIが参照します)
-                                        </h3>
-                                        <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-                                            ここに登録した情報は、AIが返信を生成する際に自動的に参照されます。例えば「予約したい」という問い合わせには予約ページURLを、「診療時間を知りたい」には診療時間を含んだ返信が生成されます。よく問い合わせがある内容を登録しておくと、正確で一貫性のある返信が作成できます。
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label className="mb-1 block text-sm font-medium">予約ページURL</Label>
-                                                <input
-                                                    className="w-full px-3 py-2 border rounded text-sm"
-                                                    value={reservationUrl}
-                                                    onChange={(e) => setReservationUrl(e.target.value)}
-                                                    placeholder="https://..."
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="mb-1 block text-sm font-medium">電話番号</Label>
-                                                <input
-                                                    className="w-full px-3 py-2 border rounded text-sm"
-                                                    value={phoneNumber}
-                                                    onChange={(e) => setPhoneNumber(e.target.value)}
-                                                    placeholder="03-xxxx-xxxx"
-                                                />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <Label className="mb-1 block text-sm font-medium">診療時間</Label>
-                                                <input
-                                                    className="w-full px-3 py-2 border rounded text-sm"
-                                                    value={clinicHours}
-                                                    onChange={(e) => setClinicHours(e.target.value)}
-                                                    placeholder="月〜土 9:00-18:00 (日祝休)"
-                                                />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <Label className="mb-1 block text-sm font-medium">よく案内する情報 (FAQなど)</Label>
-                                                <Textarea
-                                                    className="min-h-[80px] text-sm bg-white"
-                                                    value={commonInfo}
-                                                    onChange={(e) => setCommonInfo(e.target.value)}
-                                                    placeholder="初診は予約必須です、駐車場は3台あります...など"
-                                                />
-                                            </div>
+                                {/* Clinic Info Section */}
+                                <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 flex flex-col gap-4">
+                                    <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                                        🏥 クリニック情報 (AIが参照します)
+                                    </h3>
+                                    <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+                                        ここに登録した情報は、AIが返信を生成する際に自動的に参照されます。例えば「予約したい」という問い合わせには予約ページURLを、「診療時間を知りたい」には診療時間を含んだ返信が生成されます。よく問い合わせがある内容を登録しておくと、正確で一貫性のある返信が作成できます。
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label className="mb-1 block text-sm font-medium">予約ページURL</Label>
+                                            <input
+                                                className="w-full px-3 py-2 border rounded text-sm"
+                                                value={reservationUrl}
+                                                onChange={(e) => setReservationUrl(e.target.value)}
+                                                placeholder="https://..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="mb-1 block text-sm font-medium">電話番号</Label>
+                                            <input
+                                                className="w-full px-3 py-2 border rounded text-sm"
+                                                value={phoneNumber}
+                                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                                placeholder="03-xxxx-xxxx"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <Label className="mb-1 block text-sm font-medium">診療時間</Label>
+                                            <input
+                                                className="w-full px-3 py-2 border rounded text-sm"
+                                                value={clinicHours}
+                                                onChange={(e) => setClinicHours(e.target.value)}
+                                                placeholder="月〜土 9:00-18:00 (日祝休)"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <Label className="mb-1 block text-sm font-medium">よく案内する情報 (FAQなど)</Label>
+                                            <Textarea
+                                                className="min-h-[80px] text-sm bg-white"
+                                                value={commonInfo}
+                                                onChange={(e) => setCommonInfo(e.target.value)}
+                                                placeholder="初診は予約必須です、駐車場は3台あります...など"
+                                            />
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <Label className="mb-2 block font-bold text-gray-700">返信ポリシー (System Prompt)</Label>
-                                        <p className="text-sm text-gray-500 mb-2 leading-relaxed">
-                                            ここに記載したルールに従って、AIが返信文を生成します。挨拶の仕方、結論の伝え方、共感の度合いなど、クリニックの対応方針に合わせて調整できます。
-                                        </p>
-                                        <Textarea
-                                            className="w-full font-mono text-sm leading-relaxed min-h-[300px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
-                                            value={policy}
-                                            onChange={(e) => setPolicy(e.target.value)}
-                                            placeholder="返信ポリシーを入力..."
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="mb-2 block font-bold text-gray-700">署名 (Signature)</Label>
-                                        <p className="text-sm text-gray-500 mb-2 leading-relaxed">
-                                            生成された返信の末尾に自動で追加されます。
-                                        </p>
-                                        <Textarea
-                                            className="w-full font-mono text-sm leading-relaxed min-h-[150px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
-                                            value={signature}
-                                            onChange={(e) => setSignature(e.target.value)}
-                                            placeholder="署名を入力..."
-                                        />
-                                    </div>
-                                </div>
-                                <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
-                                    <Button variant="outline" onClick={() => setIsPolicyModalOpen(false)} className="px-6">
-                                        キャンセル
-                                    </Button>
-                                    <Button className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8" onClick={handleSavePolicy}>
-                                        保存
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                }
-
-                {/* CSV Upload Confirmation Modal */}
-                {
-                    isUploadModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                            <div className="w-full max-w-md bg-white rounded-lg shadow-xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                                <div className="p-6 border-b border-gray-200">
-                                    <h2 className="text-xl font-bold text-gray-800">データの読み込みオプション</h2>
-                                </div>
-                                <div className="p-6 flex flex-col gap-4">
-                                    <p className="text-gray-600">
-                                        既に <span className="font-bold text-gray-900">{emails.length}件</span> のデータが存在します。<br />
-                                        新しく読み込む <span className="font-bold text-gray-900">{pendingUploadEmails.length}件</span> のデータをどのように扱いますか？
+                                <div>
+                                    <Label className="mb-2 block font-bold text-gray-700">返信ポリシー (System Prompt)</Label>
+                                    <p className="text-sm text-gray-500 mb-2 leading-relaxed">
+                                        ここに記載したルールに従って、AIが返信文を生成します。挨拶の仕方、結論の伝え方、共感の度合いなど、クリニックの対応方針に合わせて調整できます。
                                     </p>
-
-                                    <div className="flex flex-col gap-3 mt-2">
-                                        <Button
-                                            className="w-full justify-between h-auto py-3 px-4 bg-blue-600 hover:bg-blue-700"
-                                            onClick={() => handleMergeChoice('append')}
-                                        >
-                                            <div className="flex flex-col items-start">
-                                                <span className="font-bold text-base">追加する (Append)</span>
-                                                <span className="text-xs font-normal text-blue-100">既存のデータに残し、新しいデータを追加します</span>
-                                            </div>
-                                            <span className="text-xl">＋</span>
-                                        </Button>
-
-                                        <Button
-                                            variant="destructive"
-                                            className="w-full justify-between h-auto py-3 px-4 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
-                                            onClick={() => handleMergeChoice('overwrite')}
-                                        >
-                                            <div className="flex flex-col items-start">
-                                                <span className="font-bold text-base">上書きする (Overwrite)</span>
-                                                <span className="text-xs font-normal text-red-500">既存のデータを全て削除し、入れ替えます</span>
-                                            </div>
-                                            <span className="text-xl"></span>
-                                        </Button>
-                                    </div>
+                                    <Textarea
+                                        className="w-full font-mono text-sm leading-relaxed min-h-[300px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                                        value={policy}
+                                        onChange={(e) => setPolicy(e.target.value)}
+                                        placeholder="返信ポリシーを入力..."
+                                    />
                                 </div>
-                                <div className="p-4 border-t border-gray-200 flex justify-center">
+                                <div>
+                                    <Label className="mb-2 block font-bold text-gray-700">署名 (Signature)</Label>
+                                    <p className="text-sm text-gray-500 mb-2 leading-relaxed">
+                                        生成された返信の末尾に自動で追加されます。
+                                    </p>
+                                    <Textarea
+                                        className="w-full font-mono text-sm leading-relaxed min-h-[150px] text-black border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                                        value={signature}
+                                        onChange={(e) => setSignature(e.target.value)}
+                                        placeholder="署名を入力..."
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
+                                <Button variant="outline" onClick={() => setIsPolicyModalOpen(false)} className="px-6">
+                                    キャンセル
+                                </Button>
+                                <Button className="bg-[#3B82F6] hover:bg-[#2563eb] text-white px-8" onClick={handleSavePolicy}>
+                                    保存
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* CSV Upload Confirmation Modal */}
+            {
+                isUploadModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-md bg-white rounded-lg shadow-xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-bold text-gray-800">データの読み込みオプション</h2>
+                            </div>
+                            <div className="p-6 flex flex-col gap-4">
+                                <p className="text-gray-600">
+                                    既に <span className="font-bold text-gray-900">{emails.length}件</span> のデータが存在します。<br />
+                                    新しく読み込む <span className="font-bold text-gray-900">{pendingUploadEmails.length}件</span> のデータをどのように扱いますか？
+                                </p>
+
+                                <div className="flex flex-col gap-3 mt-2">
                                     <Button
-                                        variant="ghost"
-                                        className="text-gray-500"
-                                        onClick={() => setIsUploadModalOpen(false)}
+                                        className="w-full justify-between h-auto py-3 px-4 bg-blue-600 hover:bg-blue-700"
+                                        onClick={() => handleMergeChoice('append')}
                                     >
-                                        キャンセル
+                                        <div className="flex flex-col items-start">
+                                            <span className="font-bold text-base">追加する (Append)</span>
+                                            <span className="text-xs font-normal text-blue-100">既存のデータに残し、新しいデータを追加します</span>
+                                        </div>
+                                        <span className="text-xl">＋</span>
+                                    </Button>
+
+                                    <Button
+                                        variant="destructive"
+                                        className="w-full justify-between h-auto py-3 px-4 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                                        onClick={() => handleMergeChoice('overwrite')}
+                                    >
+                                        <div className="flex flex-col items-start">
+                                            <span className="font-bold text-base">上書きする (Overwrite)</span>
+                                            <span className="text-xs font-normal text-red-500">既存のデータを全て削除し、入れ替えます</span>
+                                        </div>
+                                        <span className="text-xl">↺</span>
                                     </Button>
                                 </div>
                             </div>
+                            <div className="p-4 border-t border-gray-200 flex justify-center">
+                                <Button
+                                    variant="ghost"
+                                    className="text-gray-500"
+                                    onClick={() => setIsUploadModalOpen(false)}
+                                >
+                                    キャンセル
+                                </Button>
+                            </div>
                         </div>
-                    )
-                }
-            </div>
-            {/* Template Manager Modal */}
-            <TemplateManager
-                isOpen={isTemplateModalOpen}
-                onClose={() => {
-                    setIsTemplateModalOpen(false)
-                    setTemplateInitialData(undefined) // Reset on close
-                }}
-                initialData={templateInitialData}
-            />
+                    </div>
+                )
+            }
+        </div >
+        {/* Template Manager Modal */ }
+    < TemplateManager
+        isOpen={isTemplateModalOpen}
+        onClose={() => {
+            setIsTemplateModalOpen(false)
+            setTemplateInitialData(undefined) // Reset on close
+        }
+        }
+        initialData={templateInitialData}
+    />
 
-            {/* Learning Data Manager Modal */}
-            <LearningDataManager
-                isOpen={isLearningDataManagerOpen}
-                onClose={() => setIsLearningDataManagerOpen(false)}
-                onAddToTemplate={(data) => {
-                    setTemplateInitialData(data)
-                    setIsLearningDataManagerOpen(false) // Close learning manager
-                    setTimeout(() => setIsTemplateModalOpen(true), 100) // Open template manager (slight delay for smooth transition)
-                }}
-            />
+    {/* Learning Data Manager Modal */ }
+    < LearningDataManager
+        isOpen={isLearningDataManagerOpen}
+        onClose={() => setIsLearningDataManagerOpen(false)}
+        onAddToTemplate={(data) => {
+            setTemplateInitialData(data)
+            setIsLearningDataManagerOpen(false) // Close learning manager
+            setTimeout(() => setIsTemplateModalOpen(true), 100) // Open template manager (slight delay for smooth transition)
+        }}
+    />
 
-            {/* Overwrite Confirmation Dialog */}
-            <Dialog open={isOverwriteAlertOpen} onOpenChange={setIsOverwriteAlertOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>学習データの重複</DialogTitle>
-                        <DialogDescription>
-                            この問い合わせの学習データは既に存在します。上書きしますか？
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsOverwriteAlertOpen(false)}>キャンセル</Button>
-                        <Button onClick={handleOverwriteDraft} className="bg-blue-600 hover:bg-blue-700 text-white">上書き</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+    {/* Overwrite Confirmation Dialog */ }
+    <Dialog open={isOverwriteAlertOpen} onOpenChange={setIsOverwriteAlertOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>学習データの重複</DialogTitle>
+                <DialogDescription>
+                    この問い合わせの学習データは既に存在します。上書きしますか？
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsOverwriteAlertOpen(false)}>キャンセル</Button>
+                <Button onClick={handleOverwriteDraft} className="bg-blue-600 hover:bg-blue-700 text-white">上書き</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 
-            {/* Analysis Dashboard Modal */}
-            <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
-        </div>
+    {/* Analysis Dashboard Modal */ }
+    <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
+        </div >
     )
 }
