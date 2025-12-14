@@ -88,11 +88,17 @@ export function LearningDataManager({ isOpen, onClose, onAddToTemplate }: Learni
                             学習データ管理
                         </DialogTitle>
                         <DialogDescription className="text-sm text-gray-600 space-y-2">
-                            <p>学習データは、AI返信生成時に参考例（Few-shot）として使用されます。</p>
-                            <div className="bg-indigo-50 p-3 rounded-md text-indigo-900 text-sm">
-                                保存されたデータの中から、<strong>最新5件</strong>が優先的にAIに提示され、
-                                トーンや形式を学習して返信を生成します。<br />
-                                不要なデータは削除することで、AIの学習対象から除外できます。
+                            <p>学習データは、AI返信生成時に参考例として使用されます。</p>
+                            <div className="bg-indigo-50 p-3 rounded-md text-indigo-900 text-sm space-y-2">
+                                <p>
+                                    保存されたデータの中から、<strong>最新5件</strong>が優先的にAIに提示されます。<br />
+                                    AIはクリニックらしい「口調や雰囲気（話し方）」を学び、返信を生成します。<br />
+                                    <span className="text-xs text-indigo-700">※内容も参考にするため、正確で書きぶりも良い返信を保存してください。</span>
+                                </p>
+                                <p className="flex items-start gap-2 font-bold text-indigo-700 bg-white/50 p-2 rounded">
+                                    <span className="text-lg leading-none">💡</span>
+                                    <span className="text-xs">ずっと使いたい返信例は「模範解答」に移すと、常にAIが参照するようになります。</span>
+                                </p>
                             </div>
                         </DialogDescription>
                     </div>

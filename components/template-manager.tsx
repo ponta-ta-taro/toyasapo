@@ -231,11 +231,19 @@ export function TemplateManager({ isOpen, onClose, initialData }: TemplateManage
                                 <BookOpen className="h-6 w-6 text-blue-600" />
                                 模範回答（テンプレート）管理
                             </DialogTitle>
-                            <DialogDescription className="mt-1">
-                                問い合わせパターン別の模範回答を登録し、AI生成の精度を向上させます。
-                                <span className="block mt-1">
-                                    「学習データ管理」に登録されている返信内容から模範回答に追加することもできます。
-                                </span>
+                            <DialogDescription className="mt-1 space-y-3">
+                                <p>
+                                    模範解答は、AI返信生成時に<strong className="text-blue-700">最優先で参照</strong>されます。<br />
+                                    クリニックのルールや正しい手順など「正確な情報」を登録してください。<br />
+                                    AIは問い合わせ内容に関連する模範解答を自動で見つけ出し、回答に使用します。
+                                </p>
+                                <div className="bg-blue-50 p-3 rounded-md text-blue-900 text-xs shadow-sm">
+                                    <p className="font-bold border-b border-blue-200 pb-1 mb-1">📌 使い分け</p>
+                                    <ul className="list-disc pl-4 space-y-0.5">
+                                        <li><span className="font-bold">模範解答</span>：住所、料金、予約URL、診断書の手順など「正しい情報」</li>
+                                        <li><span className="font-bold">学習データ</span>：挨拶の仕方、断り方など「話し方の見本」</li>
+                                    </ul>
+                                </div>
                             </DialogDescription>
                         </div>
 
