@@ -33,7 +33,7 @@ import {
     LineChart,
     Line
 } from "recharts"
-import { BarChart3, Database } from "lucide-react"
+import { BarChart3, Database, AlertCircle } from "lucide-react"
 
 interface AnalyzedWord {
     word: string;
@@ -56,6 +56,17 @@ interface ColabAnalysisData {
     bigrams_top20?: AnalyzedWord[]; // Optional in case older data doesn't have it
     keywords_tfidf?: TFIDFWord[];
     cooccurrence?: Record<string, AnalyzedWord[]>;
+    sentiment_summary?: {
+        positive_count: number;
+        negative_count: number;
+        neutral_count: number;
+        mixed_count: number;
+        average_scores: {
+            positive: number;
+            negative: number;
+            neutral: number;
+        }
+    };
 }
 
 interface AnalysisDashboardProps {
@@ -464,6 +475,100 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Sentiment Analysis Section */}
+                                    {colabData.sentiment_summary ? (
+                                        <div className="bg-slate-50 p-5 rounded-lg border border-slate-200">
+                                            {/* ... (Existing Content) ... */}
+                                            <h4 className="text-base font-bold flex items-center gap-2 mb-4 text-slate-700">
+                                                ❤️ 感情分析（AI判定）
+                                            </h4>
+                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                                {/* Sentiment Pie Chart */}
+                                                <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100 flex flex-col items-center">
+                                                    <h5 className="text-sm font-bold mb-2">感情分布</h5>
+                                                    <div className="w-full h-[200px]">
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <PieChart>
+                                                                <Pie
+                                                                    data={[
+                                                                        { name: 'ポジティブ', value: colabData.sentiment_summary.positive_count, color: '#22c55e' },
+                                                                        { name: 'ネガティブ', value: colabData.sentiment_summary.negative_count, color: '#ef4444' },
+                                                                        { name: 'ニュートラル', value: colabData.sentiment_summary.neutral_count, color: '#94a3b8' },
+                                                                        { name: '混合', value: colabData.sentiment_summary.mixed_count, color: '#eab308' },
+                                                                    ].filter(d => d.value > 0)}
+                                                                    cx="50%"
+                                                                    cy="50%"
+                                                                    innerRadius={60}
+                                                                    outerRadius={80}
+                                                                    paddingAngle={5}
+                                                                    dataKey="value"
+                                                                >
+                                                                    {[
+                                                                        { name: 'ポジティブ', value: colabData.sentiment_summary.positive_count, color: '#22c55e' },
+                                                                        { name: 'ネガティブ', value: colabData.sentiment_summary.negative_count, color: '#ef4444' },
+                                                                        { name: 'ニュートラル', value: colabData.sentiment_summary.neutral_count, color: '#94a3b8' },
+                                                                        { name: '混合', value: colabData.sentiment_summary.mixed_count, color: '#eab308' },
+                                                                    ].filter(d => d.value > 0).map((entry, index) => (
+                                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                                    ))}
+                                                                </Pie>
+                                                                <Tooltip />
+                                                                <Legend />
+                                                            </PieChart>
+                                                        </ResponsiveContainer>
+                                                    </div>
+                                                </div>
+
+                                                {/* Scores & Alerts */}
+                                                <div className="lg:col-span-2 flex flex-col gap-4">
+                                                    {/* Alert if Negative is significant */}
+                                                    {(colabData.sentiment_summary.negative_count > colabData.sentiment_summary.positive_count ||
+                                                        colabData.sentiment_summary.negative_count > (colabData.total_count * 0.2)) && (
+                                                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-start gap-2">
+                                                                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                                                                <div>
+                                                                    <p className="font-bold">ネガティブな問い合わせが増加しています</p>
+                                                                    <p className="text-sm">
+                                                                        ネガティブ判定のメールが全体の {(colabData.sentiment_summary.negative_count / colabData.total_count * 100).toFixed(1)}% ({colabData.sentiment_summary.negative_count}件) 検出されました。
+                                                                        対応の優先度を見直すことをお勧めします。
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                    <div className="grid grid-cols-3 gap-4">
+                                                        <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100">
+                                                            <div className="text-xs text-gray-500 mb-1">ポジティブ平均</div>
+                                                            <div className="text-xl font-bold text-green-600">
+                                                                {(colabData.sentiment_summary.average_scores.positive * 100).toFixed(1)}<span className="text-sm text-gray-400">%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100">
+                                                            <div className="text-xs text-gray-500 mb-1">ネガティブ平均</div>
+                                                            <div className="text-xl font-bold text-red-600">
+                                                                {(colabData.sentiment_summary.average_scores.negative * 100).toFixed(1)}<span className="text-sm text-gray-400">%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100">
+                                                            <div className="text-xs text-gray-500 mb-1">ニュートラル平均</div>
+                                                            <div className="text-xl font-bold text-slate-600">
+                                                                {(colabData.sentiment_summary.average_scores.neutral * 100).toFixed(1)}<span className="text-sm text-gray-400">%</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-gray-50 p-5 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-center gap-2">
+                                            <h4 className="text-base font-bold text-gray-500">感情分析データがありません</h4>
+                                            <p className="text-sm text-gray-400">
+                                                Colabでアクセストークン（azure_textanalytics_key.txt）が正しく読み込まれていない可能性があります。<br />
+                                                Google Driveの設定を確認してください。
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {/* Categories Grid (Top 10 Keywords removed by request) */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
