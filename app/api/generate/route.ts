@@ -41,6 +41,14 @@ export async function POST(req: Request) {
 - 署名は含めないでください（本文のみ作成）。
 - 簡潔で分かりやすい文章構成`) + clinicInfoPrompt;
 
+        systemPrompt += `
+
+【重要：出力形式】
+JSON形式で出力してください。以下のキーを含めてください：
+- "draft": 生成されたメール本文（文字列）
+- "notes": 生成時の注意点や工夫したポイントのリスト（文字列の配列）。例：["患者様の不安に寄り添いました", "予約方法を具体的に案内しました"]
+必ずJSONのみを出力し、挨拶などは含めないでください。`;
+
         // Append Templates (Model Answers) - High Priority
         if (templates && Array.isArray(templates) && templates.length > 0) {
             systemPrompt += `\n\n【模範回答（テンプレート）】\nこの問い合わせに関連する模範的な回答パターンです。以下のトーンや構成を強く意識して返信を作成してください。\n`;
@@ -68,7 +76,7 @@ export async function POST(req: Request) {
             messages = [
                 { role: "user", content: inquiry || "（問い合わせ内容不明）" },
                 { role: "assistant", content: currentDraft },
-                { role: "user", content: `この返信案に対して、以下の修正を加えて書き直してください：\n\n${instructions}` }
+                { role: "user", content: `この返信案に対して、以下の修正を加えて書き直してください（出力はJSON形式）：\n\n${instructions}` }
             ];
         } else {
             messages = [
@@ -78,15 +86,26 @@ export async function POST(req: Request) {
 
         const msg = await anthropic.messages.create({
             model: "claude-sonnet-4-20250514",
-            max_tokens: 1000,
+            max_tokens: 1500,
             temperature: 0.7,
             system: systemPrompt,
             messages: messages,
         });
 
-        const draft = msg.content[0].type === 'text' ? msg.content[0].text : '';
+        const content = msg.content[0].type === 'text' ? msg.content[0].text : '';
 
-        return NextResponse.json({ draft });
+        let parsedResult: { draft: string, notes: string[] };
+        try {
+            // Attempt to clean markdown json blocks if present
+            const cleanContent = content.replace(/```json\n|\n```/g, '').trim();
+            parsedResult = JSON.parse(cleanContent);
+        } catch (e) {
+            console.error("JSON parse failed", e, content);
+            // Fallback: treat whole content as draft if parse fails
+            parsedResult = { draft: content, notes: ["(自動解析に失敗しました)"] };
+        }
+
+        return NextResponse.json(parsedResult);
     } catch (error) {
         console.error("Generate error:", error);
         return NextResponse.json(

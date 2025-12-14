@@ -130,6 +130,10 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     // Analysis State
     const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false)
 
+    // Generation Notes State
+    const [generationNotes, setGenerationNotes] = useState<string[]>([])
+    const [isGenerationResultOpen, setIsGenerationResultOpen] = useState(false)
+
     // Reset states when switching emails
     useEffect(() => {
         if (selectedEmailId) {
@@ -493,6 +497,8 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             }
 
             setGeneratedDraft(finalDraft);
+            setGenerationNotes(data.notes || []); // Store notes
+            setIsGenerationResultOpen(true); // Open notes dialog
 
             // Reset refine instructions after success
             if (isRefine) setRefineInstructions("");
@@ -500,7 +506,8 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             // Reset saved status since content changed
             setIsDraftSaved(false);
 
-            toast.success(isRefine ? "返信を再生成しました" : "返信下書きを生成しました");
+            // Toast removed to avoid cluttering with the modal, or keep as background info
+            // toast.success(isRefine ? "返信を再生成しました" : "返信下書きを生成しました");
 
             // Mark as processed if it's a new Gmail import
             if (selectedEmailId && selectedEmail?.source === 'gmail' && !selectedEmail.isProcessed) {
@@ -1096,61 +1103,66 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                             優先度: {selectedEmail.classification.priority >= 4 ? "高" : selectedEmail.classification.priority >= 3 ? "中" : "低"}
                                                         </span>
                                                     )}
+
+                                                    {/* Actions (Moved here) */}
+                                                    <div className="flex items-center gap-2 ml-2">
+                                                        {filterTrash ? (
+                                                            <>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="text-green-600 border-green-200 hover:bg-green-50 h-7 text-xs px-2"
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!selectedEmailId) return;
+                                                                        await restoreEmail(selectedEmailId);
+                                                                        setEmails(prev => prev.map(em => em.id === selectedEmailId ? { ...em, isDeleted: false } : em));
+                                                                        toast.success("メールを復元しました");
+                                                                        setSelectedEmailId(null);
+                                                                    }}
+                                                                >
+                                                                    <Undo2 className="w-3 h-3 mr-1" /> 復元
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="text-red-600 border-red-200 hover:bg-red-50 h-7 text-xs px-2"
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!selectedEmailId) return;
+                                                                        if (!confirm("本当に完全に削除しますか？この操作は取り消せません。")) return;
+                                                                        await hardDeleteEmail(selectedEmailId);
+                                                                        setEmails(prev => prev.filter(em => em.id !== selectedEmailId));
+                                                                        toast.success("メールを完全に削除しました");
+                                                                        setSelectedEmailId(null);
+                                                                    }}
+                                                                >
+                                                                    <Ban className="w-3 h-3 mr-1" /> 完全削除
+                                                                </Button>
+                                                            </>
+                                                        ) : (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-gray-400 hover:text-red-600 hover:bg-red-50 h-6 px-2 text-xs"
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!selectedEmailId) return;
+                                                                    if (!confirm("このメールをゴミ箱に移動しますか？")) return;
+                                                                    await deleteEmail(selectedEmailId);
+                                                                    setEmails(prev => prev.map(em => em.id === selectedEmailId ? { ...em, isDeleted: true } : em));
+                                                                    toast.success("メールをゴミ箱に移動しました");
+                                                                    setSelectedEmailId(null);
+                                                                }}
+                                                            >
+                                                                <Trash2 className="w-3 h-3 mr-1" /> 削除
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            {/* Actions */}
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                {filterTrash ? (
-                                                    <>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="text-green-600 border-green-200 hover:bg-green-50 h-8"
-                                                            onClick={async () => {
-                                                                if (!selectedEmailId) return;
-                                                                await restoreEmail(selectedEmailId);
-                                                                setEmails(prev => prev.map(em => em.id === selectedEmailId ? { ...em, isDeleted: false } : em));
-                                                                toast.success("メールを復元しました");
-                                                                setSelectedEmailId(null);
-                                                            }}
-                                                        >
-                                                            <Undo2 className="w-4 h-4 mr-2" /> 復元
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="text-red-600 border-red-200 hover:bg-red-50 h-8"
-                                                            onClick={async () => {
-                                                                if (!selectedEmailId) return;
-                                                                if (!confirm("本当に完全に削除しますか？この操作は取り消せません。")) return;
-                                                                await hardDeleteEmail(selectedEmailId);
-                                                                setEmails(prev => prev.filter(em => em.id !== selectedEmailId));
-                                                                toast.success("メールを完全に削除しました");
-                                                                setSelectedEmailId(null);
-                                                            }}
-                                                        >
-                                                            <Ban className="w-4 h-4 mr-2" /> 完全削除
-                                                        </Button>
-                                                    </>
-                                                ) : (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-gray-500 hover:text-red-600 hover:bg-red-50 h-8"
-                                                        onClick={async () => {
-                                                            if (!selectedEmailId) return;
-                                                            if (!confirm("このメールをゴミ箱に移動しますか？")) return;
-                                                            await deleteEmail(selectedEmailId);
-                                                            setEmails(prev => prev.map(em => em.id === selectedEmailId ? { ...em, isDeleted: true } : em));
-                                                            toast.success("メールをゴミ箱に移動しました");
-                                                            setSelectedEmailId(null);
-                                                        }}
-                                                    >
-                                                        <Trash2 className="w-4 h-4 mr-2" /> 削除
-                                                    </Button>
-                                                )}
-                                            </div>
+
                                         </div>
 
                                         {/* Warning Area */}
@@ -1471,6 +1483,40 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
             {/* Analysis Dashboard Modal */}
             <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
+
+            {/* Generation Result Modal */}
+            <Dialog open={isGenerationResultOpen} onOpenChange={setIsGenerationResultOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-green-600">
+                            <Check className="w-5 h-5" />
+                            下書きを作成しました
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                            <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4" />
+                                生成時の注意点
+                            </h4>
+                            <ul className="list-disc pl-5 space-y-1">
+                                {generationNotes.length > 0 ? (
+                                    generationNotes.map((note, index) => (
+                                        <li key={index} className="text-sm text-gray-700">{note}</li>
+                                    ))
+                                ) : (
+                                    <li className="text-sm text-gray-500">特記事項はありません</li>
+                                )}
+                            </ul>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={() => setIsGenerationResultOpen(false)} className="w-full sm:w-auto">
+                            閉じる
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

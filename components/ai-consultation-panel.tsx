@@ -1,10 +1,9 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, Bot, User, Loader2, Sparkles } from "lucide-react"
+import { Send, Bot, User, Loader2, Sparkles, X } from "lucide-react"
 
 // Types matching the structure in analysis-dashboard.tsx
 interface AnalyzedWord {
@@ -35,8 +34,7 @@ export interface CorrelationAnalysisData {
     weakness_keywords?: AnalyzedWord[];
 }
 
-interface AIConsultationDialogProps {
-    isOpen: boolean;
+interface AIConsultationPanelProps {
     onClose: () => void;
     data: CorrelationAnalysisData | null;
 }
@@ -46,7 +44,7 @@ interface Message {
     content: string;
 }
 
-export function AIConsultationDialog({ isOpen, onClose, data }: AIConsultationDialogProps) {
+export function AIConsultationPanel({ onClose, data }: AIConsultationPanelProps) {
     const [messages, setMessages] = useState<Message[]>([
         { role: 'assistant', content: 'こんにちは。経営アドバイザーAIです。分析データを元に、改善提案やご質問にお答えします。' }
     ]);
@@ -124,78 +122,80 @@ export function AIConsultationDialog({ isOpen, onClose, data }: AIConsultationDi
     ];
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col p-0 gap-0">
-                <DialogHeader className="p-4 border-b">
-                    <DialogTitle className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-purple-600" />
-                        AI経営アドバイザーに相談
-                    </DialogTitle>
-                    <DialogDescription>
-                        分析データを踏まえて、AIがアドバイスします。
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" ref={scrollRef}>
-                    {messages.map((msg, i) => (
-                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`flex items-start gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-blue-600' : 'bg-purple-600'}`}>
-                                    {msg.role === 'user' ? <User className="w-5 h-5 text-white" /> : <Bot className="w-5 h-5 text-white" />}
-                                </div>
-                                <div className={`p-3 rounded-lg text-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border text-gray-800 shadow-sm'}`}>
-                                    {msg.content}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    {loading && (
-                        <div className="flex justify-start">
-                            <div className="flex items-start gap-2 max-w-[85%]">
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-purple-600">
-                                    <Bot className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="bg-white border p-3 rounded-lg shadow-sm">
-                                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                                </div>
-                            </div>
-                        </div>
-                    )}
+        <div className="flex flex-col h-full bg-white border-l border-gray-200 shadow-xl w-full">
+            {/* Header */}
+            <div className="p-4 border-b flex justify-between items-center bg-white shrink-0">
+                <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <h3 className="font-bold text-gray-800">AI経営アドバイザー</h3>
                 </div>
+                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+                    <X className="w-5 h-5 text-gray-500" />
+                </Button>
+            </div>
 
-                {messages.length === 1 && (
-                    <div className="px-4 pb-2">
-                        <p className="text-xs text-gray-500 mb-2 font-bold">質問例:</p>
-                        <div className="flex flex-wrap gap-2">
-                            {sampleQuestions.map((q, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setInput(q)}
-                                    className="text-xs bg-white border border-purple-200 text-purple-700 px-3 py-1 rounded-full hover:bg-purple-50 transition-colors"
-                                >
-                                    {q}
-                                </button>
-                            ))}
+            {/* Chat Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" ref={scrollRef}>
+                {messages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`flex items-start gap-2 max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-blue-600' : 'bg-purple-600'}`}>
+                                {msg.role === 'user' ? <User className="w-5 h-5 text-white" /> : <Bot className="w-5 h-5 text-white" />}
+                            </div>
+                            <div className={`p-3 rounded-lg text-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border text-gray-800 shadow-sm'}`}>
+                                {msg.content}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                {loading && (
+                    <div className="flex justify-start">
+                        <div className="flex items-start gap-2 max-w-[90%]">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-purple-600">
+                                <Bot className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="bg-white border p-3 rounded-lg shadow-sm">
+                                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                            </div>
                         </div>
                     </div>
                 )}
+            </div>
 
-                <div className="p-4 border-t bg-white">
-                    <div className="flex gap-2">
-                        <Input
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="質問を入力..."
-                            className="flex-1"
-                            disabled={loading}
-                        />
-                        <Button onClick={handleSend} disabled={loading || !input.trim()} size="icon" className="shrink-0 bg-blue-600 hover:bg-blue-700">
-                            <Send className="w-4 h-4" />
-                        </Button>
+            {/* Suggestions */}
+            {messages.length === 1 && (
+                <div className="px-4 pb-2 bg-gray-50 shrink-0">
+                    <p className="text-xs text-gray-500 mb-2 font-bold">質問例:</p>
+                    <div className="flex flex-wrap gap-2">
+                        {sampleQuestions.map((q, i) => (
+                            <button
+                                key={i}
+                                onClick={() => setInput(q)}
+                                className="text-xs bg-white border border-purple-200 text-purple-700 px-3 py-1 rounded-full hover:bg-purple-50 transition-colors"
+                            >
+                                {q}
+                            </button>
+                        ))}
                     </div>
                 </div>
-            </DialogContent>
-        </Dialog>
+            )}
+
+            {/* Input Area */}
+            <div className="p-4 border-t bg-white shrink-0">
+                <div className="flex gap-2">
+                    <Input
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="質問を入力..."
+                        className="flex-1"
+                        disabled={loading}
+                    />
+                    <Button onClick={handleSend} disabled={loading || !input.trim()} size="icon" className="shrink-0 bg-blue-600 hover:bg-blue-700">
+                        <Send className="w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+        </div>
     );
 }
