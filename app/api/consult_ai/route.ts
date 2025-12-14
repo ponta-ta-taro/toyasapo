@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
-// Initialize Anthropic client
-// Ensure ANTHROPIC_API_KEY is set in .env.local
-const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Initialize Anthropic client inside handler for better error handling
 
 interface Message {
     role: 'user' | 'assistant';
@@ -14,6 +10,14 @@ interface Message {
 
 export async function POST(req: NextRequest) {
     try {
+        if (!process.env.ANTHROPIC_API_KEY) {
+            throw new Error("ANTHROPIC_API_KEY is not set in environment variables");
+        }
+
+        const anthropic = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY,
+        });
+
         const { messages, contextData } = await req.json();
 
         if (!messages || !Array.isArray(messages)) {
