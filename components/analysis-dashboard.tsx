@@ -805,8 +805,13 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                     {/* Bigrams (Consultation Patterns) */}
                                     {colabData.bigrams_top20 && colabData.bigrams_top20.length > 0 && (
                                         <div className="border-t border-gray-100 pt-6 mt-2">
-                                            <h4 className="text-md font-bold mb-4 text-gray-700 flex items-center gap-2">
-                                                🔗 よくある相談パターン
+                                            <h4 className="text-md font-bold mb-4 text-gray-700 flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    🔗 よくある相談パターン
+                                                </div>
+                                                <p className="text-xs text-gray-400 font-normal ml-6">
+                                                    2つの単語がセットで使われるパターンです。例：「初診 → 予約」は、初診と予約が一緒に問い合わせされることが多いことを示します。
+                                                </p>
                                             </h4>
                                             <div className="w-full h-[300px]">
                                                 <ResponsiveContainer width="100%" height="100%">
@@ -828,9 +833,14 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
 
                                     {/* Top 10 Keywords (Reference) */}
                                     <div className="border-t border-gray-100 pt-6 mt-2">
-                                        <h4 className="text-md font-bold mb-4 text-gray-700 flex items-center gap-2">
-                                            📊 参考：キーワード分析
-                                            <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">※精度向上中</span>
+                                        <h4 className="text-md font-bold mb-4 text-gray-700 flex flex-col gap-1">
+                                            <div className="flex items-center gap-2">
+                                                📊 参考：キーワード分析
+                                                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">※精度向上中</span>
+                                            </div>
+                                            <p className="text-xs text-gray-400 font-normal ml-6">
+                                                問い合わせメールで多く使われている単語のランキングです。数字は出現回数を表します。
+                                            </p>
                                         </h4>
                                         <div className="w-full h-[300px]">
                                             <ResponsiveContainer width="100%" height="100%">
@@ -852,9 +862,14 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                     {/* TF-IDF Analysis */}
                                     {colabData.keywords_tfidf && colabData.keywords_tfidf.length > 0 && (
                                         <div className="border-t border-gray-100 pt-6 mt-2">
-                                            <h4 className="text-md font-bold mb-4 text-gray-700 flex items-center gap-2">
-                                                📈 重要キーワード（TF-IDF）
-                                                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">※特徴的な単語を重視</span>
+                                            <h4 className="text-md font-bold mb-4 text-gray-700 flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    📈 重要キーワード（TF-IDF）
+                                                    <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">※特徴的な単語を重視</span>
+                                                </div>
+                                                <p className="text-xs text-gray-400 font-normal ml-6">
+                                                    他のクリニックと比べて、このクリニックの問い合わせで特に目立つ単語です。スコアが高いほど特徴的な単語です。
+                                                </p>
                                             </h4>
                                             <div className="w-full h-[300px]">
                                                 <ResponsiveContainer width="100%" height="100%">
@@ -878,8 +893,13 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                     {colabData.cooccurrence && Object.keys(colabData.cooccurrence).length > 0 && (
                                         <div className="border-t border-gray-100 pt-6 mt-2">
                                             <div className="flex justify-between items-center mb-4">
-                                                <h4 className="text-md font-bold text-gray-700 flex items-center gap-2">
-                                                    🔍 キーワード関連分析
+                                                <h4 className="text-md font-bold text-gray-700 flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        🔍 キーワード関連分析
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 font-normal ml-6">
+                                                        選択した単語と一緒に使われることが多い単語を表示します。例：「予約」を選ぶと、予約と一緒に使われる単語がわかります。
+                                                    </p>
                                                 </h4>
                                                 <div className="w-[180px]">
                                                     <Select
@@ -1191,9 +1211,14 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         {/* Correlation Scores */}
                                         <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
-                                            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
-                                                <ArrowRightLeft className="w-5 h-5 text-purple-500" />
-                                                相関スコア
+                                            <h4 className="text-md font-bold text-gray-700 mb-4 flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    <ArrowRightLeft className="w-5 h-5 text-purple-500" />
+                                                    相関スコア
+                                                </div>
+                                                <p className="text-xs text-gray-400 font-normal ml-7">
+                                                    口コミとメールのキーワードがどれくらい似ているかを示します。25%以上であれば共通の課題がある可能性があります。
+                                                </p>
                                             </h4>
                                             <div className="space-y-6">
                                                 <div>
