@@ -47,7 +47,7 @@ ${Array.isArray(contextData.common_email_low_rating) ? contextData.common_email_
 回答は具体的かつ建設的に、クリニック経営者の視点に立って行ってください。`;
 
         const response = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20240620',
+            model: 'claude-3-sonnet-20240229',
             max_tokens: 1024,
             system: systemPrompt,
             messages: messages.map((msg: Message) => ({

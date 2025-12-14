@@ -380,8 +380,25 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                             </DialogDescription>
                         </div>
 
-                        {/* Date Filter Controls */}
+                        {/* AI Consultation Button (Header) */}
                         <div className="flex items-center gap-2">
+                            <Button
+                                onClick={() => setIsAIConsultOpen(true)}
+                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-sm flex items-center gap-2 transition-all"
+                                size="sm"
+                            >
+                                <Sparkles className="w-4 h-4" />
+                                AIに相談する
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto bg-gray-50">
+                    <div className="p-6">
+                        {/* Date Filter Controls (Moved here) */}
+                        <div className="flex items-center justify-end gap-3 mb-6">
+                            <span className="text-sm font-bold text-gray-700">対象期間:</span>
                             <Select value={dateRange} onValueChange={setDateRange}>
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="期間を選択" />
@@ -414,11 +431,6 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto bg-gray-50">
-                    <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
                             {/* 1. Category Chart */}
@@ -1333,28 +1345,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                         </div>
                                     </div>
 
-                                    {/* AI Consultation Button */}
-                                    <div className="flex justify-center mt-12 mb-4 border-t border-gray-100 pt-8">
-                                        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-3xl p-8 text-center max-w-2xl shadow-sm w-full mx-auto">
-                                            <div className="flex justify-center mb-4">
-                                                <div className="bg-white p-3 rounded-full shadow-sm">
-                                                    <Sparkles className="w-8 h-8 text-purple-600" />
-                                                </div>
-                                            </div>
-                                            <h3 className="text-xl font-bold text-gray-800 mb-2">AI経営アドバイザーに相談する</h3>
-                                            <p className="text-gray-500 mb-6 text-sm">
-                                                分析データを元に、AIが改善提案や経営に関する質問にお答えします。<br />
-                                                「何から改善すべき？」「強みを活かすには？」など、自由に質問してください。
-                                            </p>
-                                            <Button
-                                                onClick={() => setIsAIConsultOpen(true)}
-                                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-6 px-10 rounded-full shadow-lg flex items-center gap-3 transition-all hover:scale-105 hover:shadow-xl mx-auto text-lg"
-                                            >
-                                                <MessageSquare className="w-5 h-5" />
-                                                AIに相談を始める
-                                            </Button>
-                                        </div>
-                                    </div>
+
 
                                     <AIConsultationDialog
                                         isOpen={isAIConsultOpen}
