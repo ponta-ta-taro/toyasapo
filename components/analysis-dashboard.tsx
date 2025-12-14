@@ -492,10 +492,10 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                                             <PieChart>
                                                                 <Pie
                                                                     data={[
-                                                                        { name: 'ポジティブ', value: colabData.sentiment_summary.positive_count, color: '#22c55e' },
-                                                                        { name: 'ネガティブ', value: colabData.sentiment_summary.negative_count, color: '#ef4444' },
-                                                                        { name: 'ニュートラル', value: colabData.sentiment_summary.neutral_count, color: '#94a3b8' },
-                                                                        { name: '混合', value: colabData.sentiment_summary.mixed_count, color: '#eab308' },
+                                                                        { name: 'ポジティブ', value: colabData.sentiment_summary?.positive_count || 0, color: '#22c55e' },
+                                                                        { name: 'ネガティブ', value: colabData.sentiment_summary?.negative_count || 0, color: '#ef4444' },
+                                                                        { name: 'ニュートラル', value: colabData.sentiment_summary?.neutral_count || 0, color: '#94a3b8' },
+                                                                        { name: '混合', value: colabData.sentiment_summary?.mixed_count || 0, color: '#eab308' },
                                                                     ].filter(d => d.value > 0)}
                                                                     cx="50%"
                                                                     cy="50%"
@@ -505,10 +505,10 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                                                     dataKey="value"
                                                                 >
                                                                     {[
-                                                                        { name: 'ポジティブ', value: colabData.sentiment_summary.positive_count, color: '#22c55e' },
-                                                                        { name: 'ネガティブ', value: colabData.sentiment_summary.negative_count, color: '#ef4444' },
-                                                                        { name: 'ニュートラル', value: colabData.sentiment_summary.neutral_count, color: '#94a3b8' },
-                                                                        { name: '混合', value: colabData.sentiment_summary.mixed_count, color: '#eab308' },
+                                                                        { name: 'ポジティブ', value: colabData.sentiment_summary?.positive_count || 0, color: '#22c55e' },
+                                                                        { name: 'ネガティブ', value: colabData.sentiment_summary?.negative_count || 0, color: '#ef4444' },
+                                                                        { name: 'ニュートラル', value: colabData.sentiment_summary?.neutral_count || 0, color: '#94a3b8' },
+                                                                        { name: '混合', value: colabData.sentiment_summary?.mixed_count || 0, color: '#eab308' },
                                                                     ].filter(d => d.value > 0).map((entry, index) => (
                                                                         <Cell key={`cell-${index}`} fill={entry.color} />
                                                                     ))}
@@ -523,37 +523,47 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                                 {/* Scores & Alerts */}
                                                 <div className="lg:col-span-2 flex flex-col gap-4">
                                                     {/* Alert if Negative is significant */}
-                                                    {(colabData.sentiment_summary.negative_count > colabData.sentiment_summary.positive_count ||
-                                                        colabData.sentiment_summary.negative_count > (colabData.total_count * 0.2)) && (
-                                                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-start gap-2">
-                                                                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                                                                <div>
-                                                                    <p className="font-bold">ネガティブな問い合わせが増加しています</p>
-                                                                    <p className="text-sm">
-                                                                        ネガティブ判定のメールが全体の {(colabData.sentiment_summary.negative_count / colabData.total_count * 100).toFixed(1)}% ({colabData.sentiment_summary.negative_count}件) 検出されました。
-                                                                        対応の優先度を見直すことをお勧めします。
-                                                                    </p>
+                                                    {(() => {
+                                                        const summary = colabData.sentiment_summary;
+                                                        if (!summary) return null;
+                                                        const neg = summary.negative_count || 0;
+                                                        const pos = summary.positive_count || 0;
+                                                        const total = colabData.total_count || 1;
+
+                                                        if (neg > pos || neg > (total * 0.2)) {
+                                                            return (
+                                                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-start gap-2">
+                                                                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                                                                    <div>
+                                                                        <p className="font-bold">ネガティブな問い合わせが増加しています</p>
+                                                                        <p className="text-sm">
+                                                                            ネガティブ判定のメールが全体の {(neg / total * 100).toFixed(1)}% ({neg}件) 検出されました。
+                                                                            対応の優先度を見直すことをお勧めします。
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        )}
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
 
                                                     <div className="grid grid-cols-3 gap-4">
                                                         <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100">
                                                             <div className="text-xs text-gray-500 mb-1">ポジティブ平均</div>
                                                             <div className="text-xl font-bold text-green-600">
-                                                                {(colabData.sentiment_summary.average_scores.positive * 100).toFixed(1)}<span className="text-sm text-gray-400">%</span>
+                                                                {(colabData.sentiment_summary?.average_scores?.positive ? colabData.sentiment_summary.average_scores.positive * 100 : 0).toFixed(1)}<span className="text-sm text-gray-400">%</span>
                                                             </div>
                                                         </div>
                                                         <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100">
                                                             <div className="text-xs text-gray-500 mb-1">ネガティブ平均</div>
                                                             <div className="text-xl font-bold text-red-600">
-                                                                {(colabData.sentiment_summary.average_scores.negative * 100).toFixed(1)}<span className="text-sm text-gray-400">%</span>
+                                                                {(colabData.sentiment_summary?.average_scores?.negative ? colabData.sentiment_summary.average_scores.negative * 100 : 0).toFixed(1)}<span className="text-sm text-gray-400">%</span>
                                                             </div>
                                                         </div>
                                                         <div className="bg-white p-4 rounded-md shadow-sm border border-slate-100">
                                                             <div className="text-xs text-gray-500 mb-1">ニュートラル平均</div>
                                                             <div className="text-xl font-bold text-slate-600">
-                                                                {(colabData.sentiment_summary.average_scores.neutral * 100).toFixed(1)}<span className="text-sm text-gray-400">%</span>
+                                                                {(colabData.sentiment_summary?.average_scores?.neutral ? colabData.sentiment_summary.average_scores.neutral * 100 : 0).toFixed(1)}<span className="text-sm text-gray-400">%</span>
                                                             </div>
                                                         </div>
                                                     </div>
