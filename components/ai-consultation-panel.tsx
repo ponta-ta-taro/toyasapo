@@ -37,6 +37,7 @@ export interface CorrelationAnalysisData {
 interface AIConsultationPanelProps {
     onClose: () => void;
     data: CorrelationAnalysisData | null;
+    hideCloseButton?: boolean;
 }
 
 interface Message {
@@ -44,7 +45,7 @@ interface Message {
     content: string;
 }
 
-export function AIConsultationPanel({ onClose, data }: AIConsultationPanelProps) {
+export function AIConsultationPanel({ onClose, data, hideCloseButton }: AIConsultationPanelProps) {
     const [messages, setMessages] = useState<Message[]>([
         { role: 'assistant', content: 'こんにちは。経営アドバイザーAIです。分析データを元に、改善提案やご質問にお答えします。' }
     ]);
@@ -129,9 +130,11 @@ export function AIConsultationPanel({ onClose, data }: AIConsultationPanelProps)
                     <Sparkles className="w-5 h-5 text-purple-600" />
                     <h3 className="font-bold text-gray-800">AI経営アドバイザー</h3>
                 </div>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-                    <X className="w-5 h-5 text-gray-500" />
-                </Button>
+                {!hideCloseButton && (
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+                        <X className="w-5 h-5 text-gray-500" />
+                    </Button>
+                )}
             </div>
 
             {/* Chat Area */}

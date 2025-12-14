@@ -1369,9 +1369,9 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                     </div>
 
                     {/* Right Panel (AI Chat) - Always Visible 30% */}
-                    <div className="w-[30%] shrink-0 bg-slate-100 flex flex-col relative shadow-inner">
+                    <div className="w-[30%] shrink-0 bg-slate-200 flex flex-col relative shadow-inner">
                         <div className="w-full h-full">
-                            <AIConsultationPanel onClose={() => { }} data={correlationData} />
+                            <AIConsultationPanel onClose={() => { }} data={correlationData} hideCloseButton={true} />
                         </div>
                     </div>
                 </div>
