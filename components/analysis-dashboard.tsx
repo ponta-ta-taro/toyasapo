@@ -34,7 +34,7 @@ import {
     LineChart,
     Line
 } from "recharts"
-import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote, Lightbulb, ArrowRightLeft, Target, Sparkles, ArrowLeft, X } from "lucide-react"
+import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote, Lightbulb, ArrowRightLeft, Target, ArrowLeft, X } from "lucide-react"
 
 import { AIConsultationPanel } from "./ai-consultation-panel"
 
@@ -155,7 +155,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
     const [loadingColab, setLoadingColab] = useState(false);
     const [loadingReviews, setLoadingReviews] = useState(false);
     const [selectedCooccurrenceKey, setSelectedCooccurrenceKey] = useState<string>("");
-    const [isAIConsultOpen, setIsAIConsultOpen] = useState(false);
+    // const [isAIConsultOpen, setIsAIConsultOpen] = useState(false); // Removed for always-visible layout
 
     useEffect(() => {
         const fetchColabAnalysis = async () => {
@@ -390,16 +390,8 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                             </div>
                         </div>
 
-                        {/* AI Consultation & Close Button */}
+                        {/* Close Button Only */}
                         <div className="flex items-center gap-2">
-                            <Button
-                                onClick={() => setIsAIConsultOpen(!isAIConsultOpen)}
-                                className={`font-bold py-2 px-6 rounded-full shadow-md flex items-center gap-2 transition-all transform hover:scale-105 ${isAIConsultOpen ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'}`}
-                                size="lg"
-                            >
-                                <Sparkles className="w-5 h-5" />
-                                {isAIConsultOpen ? '相談を閉じる' : 'AIに相談する'}
-                            </Button>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -414,7 +406,8 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
 
                 <div className="flex flex-1 overflow-hidden relative">
                     {/* Main Content (Dashboard) */}
-                    <div className="flex-1 overflow-y-auto bg-gray-50 h-full">
+                    {/* Main Content (Dashboard) */}
+                    <div className="w-[70%] overflow-y-auto bg-gray-50 h-full border-r border-gray-200">
                         <div className="p-6">
                             {/* Date Filter Controls (Moved here) */}
                             <div className="flex items-center justify-end gap-3 mb-6">
@@ -1375,12 +1368,10 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                         {/* End of Main Content */}
                     </div>
 
-                    {/* Right Panel (AI Chat) */}
-                    <div
-                        className={`transition-all duration-300 ease-in-out border-l border-gray-200 bg-white ${isAIConsultOpen ? 'w-[400px] translate-x-0' : 'w-0 translate-x-full border-l-0'} overflow-hidden flex flex-col relative`}
-                    >
-                        <div className="w-[400px] h-full absolute right-0 top-0">
-                            <AIConsultationPanel onClose={() => setIsAIConsultOpen(false)} data={correlationData} />
+                    {/* Right Panel (AI Chat) - Always Visible 30% */}
+                    <div className="w-[30%] shrink-0 bg-slate-100 flex flex-col relative shadow-inner">
+                        <div className="w-full h-full">
+                            <AIConsultationPanel onClose={() => { }} data={correlationData} />
                         </div>
                     </div>
                 </div>
