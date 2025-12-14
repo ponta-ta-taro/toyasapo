@@ -99,8 +99,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
     // Refine & Manual Input State
     const [refineInstructions, setRefineInstructions] = useState("")
-    const [isManualInput, setIsManualInput] = useState(false)
     const [manualInquiry, setManualInquiry] = useState("")
+    const [manualSubject, setManualSubject] = useState("") // New state for subject
+    const [isManualInput, setIsManualInput] = useState(false)
 
     // Upload Modal State
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
@@ -436,6 +437,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         setSelectedEmailId(null)
         setIsManualInput(true)
         setManualInquiry("")
+        setManualSubject("") // Reset subject
         setGeneratedDraft("")
 
         setIsDraftSaved(false)
@@ -470,11 +472,13 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         let inquiryText = "";
 
         if (isManualInput) {
-            inquiryText = manualInquiry;
-            if (!inquiryText) {
+            const bodyText = manualInquiry;
+            if (!bodyText) {
                 toast.error("問い合わせ内容がありません")
                 return;
             }
+            // Combine Subject and Body
+            inquiryText = `【件名】${manualSubject || '(件名なし)'}\n\n${bodyText}`;
 
             // Persist manual input as new Email
             const newEmail: Email = {
@@ -495,6 +499,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 setSelectedEmailId(newEmail.id);
                 setIsManualInput(false);
                 setManualInquiry("");
+                setManualSubject(""); // Reset
                 currentSelectedEmailId = newEmail.id;
 
                 toast.success("手動入力を保存しました");
@@ -1264,12 +1269,26 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                         </div>
                                         <ScrollArea className="flex-1 p-4">
                                             {isManualInput ? (
-                                                <Textarea
-                                                    className="w-full min-h-[400px] resize-none border-0 text-[16px] leading-[1.8] focus-visible:ring-0 p-0"
-                                                    placeholder="ここに問い合わせ内容を入力または貼り付けてください..."
-                                                    value={manualInquiry}
-                                                    onChange={(e) => setManualInquiry(e.target.value)}
-                                                />
+                                                <div className="flex flex-col gap-4 h-full relative">
+                                                    <div className="space-y-2">
+                                                        <Label className="font-bold text-gray-700">件名</Label>
+                                                        <input
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            placeholder="件名を入力してください（例：予約変更について）"
+                                                            value={manualSubject}
+                                                            onChange={(e) => setManualSubject(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 flex flex-col min-h-0 space-y-2">
+                                                        <Label className="font-bold text-gray-700">問い合わせ内容</Label>
+                                                        <Textarea
+                                                            className="flex-1 resize-none border-gray-300 focus:border-blue-500 focus:ring-blue-500 p-4 text-base leading-relaxed"
+                                                            placeholder="電話メモ、メール、口頭相談などの内容を入力してください..."
+                                                            value={manualInquiry}
+                                                            onChange={(e) => setManualInquiry(e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
                                             ) : (
                                                 <div className="text-gray-800 leading-[1.8] whitespace-pre-wrap text-[16px]">
                                                     {selectedEmail?.inquiry}
