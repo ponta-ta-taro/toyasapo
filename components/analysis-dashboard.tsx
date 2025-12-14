@@ -34,7 +34,7 @@ import {
     LineChart,
     Line
 } from "recharts"
-import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote, Lightbulb, ArrowRightLeft, Target, Sparkles } from "lucide-react"
+import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote, Lightbulb, ArrowRightLeft, Target, Sparkles, ArrowLeft, X } from "lucide-react"
 
 import { AIConsultationPanel } from "./ai-consultation-panel"
 
@@ -370,17 +370,27 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
             <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 gap-0 overflow-hidden">
                 <div className="p-6 border-b border-gray-200 shrink-0 bg-white z-10">
                     <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                                <BarChart3 className="h-6 w-6 text-blue-600" />
-                                問い合わせデータ分析
-                            </DialogTitle>
-                            <DialogDescription className="mt-1">
-                                対象期間: {filteredEmails.length}件 / 全{emails.length}件
-                            </DialogDescription>
+                        <div className="flex items-center gap-4">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => onClose()}
+                                className="h-10 w-10 rounded-full border-gray-300 text-gray-500 hover:bg-gray-100"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
+                            <div>
+                                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                                    <BarChart3 className="h-6 w-6 text-blue-600" />
+                                    問い合わせデータ分析
+                                </DialogTitle>
+                                <DialogDescription className="mt-1">
+                                    対象期間: {filteredEmails.length}件 / 全{emails.length}件
+                                </DialogDescription>
+                            </div>
                         </div>
 
-                        {/* AI Consultation Button (Header) */}
+                        {/* AI Consultation & Close Button */}
                         <div className="flex items-center gap-2">
                             <Button
                                 onClick={() => setIsAIConsultOpen(!isAIConsultOpen)}
@@ -389,6 +399,14 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                             >
                                 <Sparkles className="w-5 h-5" />
                                 {isAIConsultOpen ? '相談を閉じる' : 'AIに相談する'}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onClose()}
+                                className="h-10 w-10 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 ml-2"
+                            >
+                                <X className="h-6 w-6" />
                             </Button>
                         </div>
                     </div>

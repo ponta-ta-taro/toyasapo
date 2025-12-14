@@ -132,7 +132,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
     // Generation Notes State
     const [generationNotes, setGenerationNotes] = useState<string[]>([])
-    const [isGenerationResultOpen, setIsGenerationResultOpen] = useState(false)
+    // Removed popup state: const [isGenerationResultOpen, setIsGenerationResultOpen] = useState(false)
 
     // Reset states when switching emails
     useEffect(() => {
@@ -498,7 +498,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
             setGeneratedDraft(finalDraft);
             setGenerationNotes(data.notes || []); // Store notes
-            setIsGenerationResultOpen(true); // Open notes dialog
+            // Removed popup trigger: setIsGenerationResultOpen(true); 
 
             // Reset refine instructions after success
             if (isRefine) setRefineInstructions("");
@@ -1262,6 +1262,22 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                 onChange={(e) => setGeneratedDraft(e.target.value)}
                                             />
                                         </div>
+
+                                        {/* Generation Notes (Inline) */}
+                                        {generationNotes.length > 0 && (
+                                            <div className="bg-blue-50 border-t border-b border-blue-100 p-3 shrink-0">
+                                                <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2 text-sm">
+                                                    <Sparkles className="w-4 h-4" />
+                                                    生成時の注意点
+                                                </h4>
+                                                <ul className="list-disc pl-5 space-y-1">
+                                                    {generationNotes.map((note, index) => (
+                                                        <li key={index} className="text-xs text-gray-700 leading-snug">{note}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
                                         <div className="p-2 border-t bg-gray-50 flex gap-2 items-center">
                                             <Textarea
                                                 className="flex-1 min-h-[44px] h-[44px] resize-none py-2 px-3 text-[15px] bg-white border-gray-300"
@@ -1483,40 +1499,6 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
             {/* Analysis Dashboard Modal */}
             <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
-
-            {/* Generation Result Modal */}
-            <Dialog open={isGenerationResultOpen} onOpenChange={setIsGenerationResultOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-green-600">
-                            <Check className="w-5 h-5" />
-                            下書きを作成しました
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="py-2">
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                            <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
-                                <Sparkles className="w-4 h-4" />
-                                生成時の注意点
-                            </h4>
-                            <ul className="list-disc pl-5 space-y-1">
-                                {generationNotes.length > 0 ? (
-                                    generationNotes.map((note, index) => (
-                                        <li key={index} className="text-sm text-gray-700">{note}</li>
-                                    ))
-                                ) : (
-                                    <li className="text-sm text-gray-500">特記事項はありません</li>
-                                )}
-                            </ul>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={() => setIsGenerationResultOpen(false)} className="w-full sm:w-auto">
-                            閉じる
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }
