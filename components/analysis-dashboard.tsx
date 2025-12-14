@@ -1199,7 +1199,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                     </div>
 
                                     {/* 2. Keyword Comparison Charts */}
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                                         {/* Email TOP */}
                                         <div className="bg-white p-4 rounded-lg border border-gray-200">
                                             <div className="text-sm font-bold text-gray-500 mb-4 text-center border-b pb-2">お問い合わせ (メール) TOP10</div>
@@ -1221,6 +1221,21 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                             <div className="h-[300px] w-full">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <BarChart data={correlationData.review_top20.slice(0, 10).reverse()} layout="vertical" margin={{ left: 30 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="word" type="category" width={60} tick={{ fontSize: 11 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="count" fill="#9ca3af" radius={[0, 4, 4, 0]} barSize={15} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                        {/* High Rating Reviews TOP */}
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <div className="text-sm font-bold text-green-600 mb-4 text-center border-b pb-2">高評価口コミ (★4-5) TOP10</div>
+                                            <div className="h-[300px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={correlationData.high_rating_top20 ? correlationData.high_rating_top20.slice(0, 10).reverse() : []} layout="vertical" margin={{ left: 30 }}>
                                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                                         <XAxis type="number" hide />
                                                         <YAxis dataKey="word" type="category" width={60} tick={{ fontSize: 11 }} />
