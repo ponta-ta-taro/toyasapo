@@ -47,7 +47,7 @@ ${Array.isArray(contextData.common_email_low_rating) ? contextData.common_email_
 回答は具体的かつ建設的に、クリニック経営者の視点に立って行ってください。`;
 
         const response = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
+            model: 'claude-3-5-sonnet-20240620',
             max_tokens: 1024,
             system: systemPrompt,
             messages: messages.map((msg: Message) => ({
@@ -62,6 +62,7 @@ ${Array.isArray(contextData.common_email_low_rating) ? contextData.common_email_
 
     } catch (error) {
         console.error('Error in AI consultation API:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

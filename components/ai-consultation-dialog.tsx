@@ -69,16 +69,16 @@ export function AIConsultationDialog({ isOpen, onClose, data }: AIConsultationDi
         setLoading(true);
 
         try {
-            // Prepare context data
+            // Prepare context data safely
             const contextData = {
                 email_count: data.email_count,
                 review_count: data.review_count,
                 high_rating_count: data.high_rating_review_count,
                 low_rating_count: data.low_rating_review_count,
-                email_top10: data.email_top20.slice(0, 10).map(w => w.word),
+                email_top10: data.email_top20?.slice(0, 10).map(w => w.word) || [],
                 high_rating_top10: data.high_rating_top20?.slice(0, 10).map(w => w.word) || [],
-                low_rating_top10: data.low_rating_top20.slice(0, 10).map(w => w.word),
-                common_email_low_rating: data.common_email_low_rating,
+                low_rating_top10: data.low_rating_top20?.slice(0, 10).map(w => w.word) || [],
+                common_email_low_rating: data.common_email_low_rating || [],
                 scores: data.correlation_scores
             };
 
@@ -91,13 +91,20 @@ export function AIConsultationDialog({ isOpen, onClose, data }: AIConsultationDi
                 })
             });
 
-            if (!response.ok) throw new Error('API Error');
-
             const resData = await response.json();
+
+            if (!response.ok) {
+                throw new Error(resData.error || 'Server Error');
+            }
+
             setMessages(prev => [...prev, { role: 'assistant', content: resData.reply }]);
         } catch (error) {
-            console.error(error);
-            setMessages(prev => [...prev, { role: 'assistant', content: 'すみません、エラーが発生しました。もう一度お試しください。' }]);
+            console.error("AI Consultation Error:", error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown Error';
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `(エラーが発生しました)\n詳細: ${errorMessage}\n\nもう一度お試しいただくか、管理者にお問い合わせください。`
+            }]);
         } finally {
             setLoading(false);
         }
