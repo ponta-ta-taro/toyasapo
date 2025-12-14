@@ -33,7 +33,7 @@ import {
     LineChart,
     Line
 } from "recharts"
-import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote } from "lucide-react"
+import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote, Lightbulb, ArrowRightLeft, Target } from "lucide-react"
 
 interface AnalyzedWord {
     word: string;
@@ -84,6 +84,24 @@ interface ReviewSentimentData {
     };
 }
 
+interface CorrelationAnalysisData {
+    updated_at: string;
+    email_count: number;
+    review_count: number;
+    low_rating_review_count: number;
+    email_top20: AnalyzedWord[];
+    review_top20: AnalyzedWord[];
+    low_rating_top20: AnalyzedWord[];
+    common_email_review: string[];
+    common_email_low_rating: string[];
+    common_all: string[];
+    correlation_scores: {
+        email_review: number;
+        email_low_rating: number;
+    };
+    improvement_suggestions: string[];
+}
+
 interface ColabAnalysisData {
     updated_at: string;
     total_count: number;
@@ -125,6 +143,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
     const [colabData, setColabData] = useState<ColabAnalysisData | null>(null);
     const [reviewSentiment, setReviewSentiment] = useState<ReviewSentimentData | null>(null);
     const [reviews, setReviews] = useState<Review[]>([]);
+    const [correlationData, setCorrelationData] = useState<CorrelationAnalysisData | null>(null);
     const [loadingColab, setLoadingColab] = useState(false);
     const [loadingReviews, setLoadingReviews] = useState(false);
     const [selectedCooccurrenceKey, setSelectedCooccurrenceKey] = useState<string>("");
@@ -175,7 +194,16 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                     setReviewSentiment(null);
                 }
 
-                // 2. Fetch Recent Reviews
+                // 2. Fetch Correlation Analysis
+                const correlationRef = doc(db, 'analysis_results', 'correlation_analysis');
+                const correlationSnap = await getDoc(correlationRef);
+                if (correlationSnap.exists()) {
+                    setCorrelationData(correlationSnap.data() as CorrelationAnalysisData);
+                } else {
+                    setCorrelationData(null);
+                }
+
+                // 3. Fetch Recent Reviews
                 // Note: 'date' or 'scraped_at' might vary, checking latest documents usually implies sorting.
                 // Since user didn't specify sort key, we try 'scraped_at' or 'created_at' if available, else just get some.
                 const reviewsRef = collection(db, 'reviews');
@@ -1048,6 +1076,175 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                                     </div>
                                                 </div>
                                             ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Section 4: Correlation Analysis */}
+                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8">
+                            <div className="flex flex-col gap-1 mb-6 border-b border-gray-100 pb-4">
+                                <div className="flex justify-between items-start">
+                                    <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                                        <ArrowRightLeft className="h-6 w-6 text-purple-600" />
+                                        口コミ×メール相関分析
+                                    </h3>
+                                    {correlationData && (
+                                        <span className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
+                                            最終更新: {new Date(correlationData.updated_at).toLocaleString('ja-JP')}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-sm text-gray-500 ml-8">
+                                    ※口コミとメールの共通傾向を分析し、改善ポイントを可視化します
+                                </p>
+                            </div>
+
+                            {loadingReviews ? (
+                                <div className="flex justify-center items-center h-[200px] text-gray-500">
+                                    読み込み中...
+                                </div>
+                            ) : !correlationData ? (
+                                <div className="flex justify-center items-center h-[200px] bg-gray-50 rounded-lg text-gray-500">
+                                    相関分析データがありません。
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-8">
+                                    {/* 1. Improvement Suggestions (Priority) */}
+                                    <div className="bg-red-50 p-6 rounded-xl border border-red-100 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                                            <Target className="w-32 h-32 text-red-600" />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <h4 className="text-lg font-bold text-red-700 flex items-center gap-2 mb-4">
+                                                <Lightbulb className="w-6 h-6 text-yellow-500 fill-yellow-500" />
+                                                優先改善ポイント (AI提案)
+                                            </h4>
+                                            <p className="text-sm text-red-600 mb-4">
+                                                メールと低評価口コミの両方で頻出するキーワードです。これらは患者様の不満や不安の主要因となっている可能性があります。
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {correlationData.improvement_suggestions.length > 0 ? (
+                                                    correlationData.improvement_suggestions.map((word, i) => (
+                                                        <span key={i} className="px-4 py-2 bg-white text-red-600 font-bold rounded-lg shadow-sm border border-red-100 text-lg">
+                                                            {word}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-gray-500 text-sm">特になし</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Keyword Comparison Charts */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        {/* Email TOP */}
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <div className="text-sm font-bold text-gray-500 mb-4 text-center border-b pb-2">お問い合わせ (メール) TOP10</div>
+                                            <div className="h-[300px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={correlationData.email_top20.slice(0, 10).reverse()} layout="vertical" margin={{ left: 30 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="word" type="category" width={60} tick={{ fontSize: 11 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={15} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                        {/* All Reviews TOP */}
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <div className="text-sm font-bold text-gray-500 mb-4 text-center border-b pb-2">口コミ (全体) TOP10</div>
+                                            <div className="h-[300px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={correlationData.review_top20.slice(0, 10).reverse()} layout="vertical" margin={{ left: 30 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="word" type="category" width={60} tick={{ fontSize: 11 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="count" fill="#22c55e" radius={[0, 4, 4, 0]} barSize={15} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                        {/* Low Rating Reviews TOP */}
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <div className="text-sm font-bold text-red-500 mb-4 text-center border-b pb-2">低評価口コミ (★1-2) TOP10</div>
+                                            <div className="h-[300px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={correlationData.low_rating_top20.slice(0, 10).reverse()} layout="vertical" margin={{ left: 30 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="word" type="category" width={60} tick={{ fontSize: 11 }} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="count" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={15} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Correlation Scores & Common Words */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {/* Correlation Scores */}
+                                        <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
+                                            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                                <ArrowRightLeft className="w-5 h-5 text-purple-500" />
+                                                相関スコア
+                                            </h4>
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <div className="flex justify-between text-sm mb-1">
+                                                        <span className="text-gray-600">メール × 全口コミ</span>
+                                                        <span className="font-bold text-gray-800">{(correlationData.correlation_scores.email_review * 100).toFixed(1)}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                                        <div className="bg-purple-500 h-2.5 rounded-full" style={{ width: `${correlationData.correlation_scores.email_review * 100}%` }}></div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="flex justify-between text-sm mb-1">
+                                                        <span className="text-gray-600">メール × 低評価口コミ</span>
+                                                        <span className="font-bold text-red-600">{(correlationData.correlation_scores.email_low_rating * 100).toFixed(1)}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                                        <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${correlationData.correlation_scores.email_low_rating * 100}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Common Words */}
+                                        <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
+                                            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                                <Target className="w-5 h-5 text-blue-500" />
+                                                共通キーワード
+                                            </h4>
+                                            <div className="flex flex-col gap-4">
+                                                <div>
+                                                    <span className="text-xs text-gray-500 mb-1 block">全データ共通</span>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {correlationData.common_all.slice(0, 10).map((word, i) => (
+                                                            <span key={i} className="px-2 py-1 bg-white border border-gray-200 text-xs rounded text-gray-600">
+                                                                {word}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span className="text-xs text-red-500 mb-1 block">メール＆低評価で共通</span>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {correlationData.common_email_low_rating.slice(0, 10).map((word, i) => (
+                                                            <span key={i} className="px-2 py-1 bg-red-50 border border-red-100 text-xs rounded text-red-600 font-bold">
+                                                                {word}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
