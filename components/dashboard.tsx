@@ -466,12 +466,50 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     }
 
     const handleGenerate = async (isRefine = false) => {
-        const selectedEmail = emails.find(e => e.id === selectedEmailId);
-        const inquiryText = isManualInput ? manualInquiry : selectedEmail?.inquiry;
+        let currentSelectedEmailId = selectedEmailId;
+        let inquiryText = "";
 
-        if (!inquiryText) {
-            toast.error("問い合わせ内容がありません")
-            return;
+        if (isManualInput) {
+            inquiryText = manualInquiry;
+            if (!inquiryText) {
+                toast.error("問い合わせ内容がありません")
+                return;
+            }
+
+            // Persist manual input as new Email
+            const newEmail: Email = {
+                id: crypto.randomUUID(),
+                datetime: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                inquiry: inquiryText,
+                response: "",
+                source: 'manual',
+                classification: { category: 'その他', priority: 3, reason: '手動入力' }, // Default classification
+                isProcessed: false
+            };
+
+            try {
+                await saveEmails([newEmail]);
+                setEmails(prev => [newEmail, ...prev]);
+
+                // Switch context to this new email
+                setSelectedEmailId(newEmail.id);
+                setIsManualInput(false);
+                setManualInquiry("");
+                currentSelectedEmailId = newEmail.id;
+
+                toast.success("手動入力を保存しました");
+            } catch (e) {
+                console.error("Failed to save manual input:", e);
+                toast.error("保存に失敗しました");
+                return;
+            }
+        } else {
+            const selectedEmail = emails.find(e => e.id === selectedEmailId);
+            inquiryText = selectedEmail?.inquiry || "";
+            if (!inquiryText) {
+                toast.error("問い合わせ内容がありません")
+                return;
+            }
         }
 
         setIsGenerating(true);
@@ -533,11 +571,17 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             // toast.success(isRefine ? "返信を再生成しました" : "返信下書きを生成しました");
 
             // Mark as processed if it's a new Gmail import
-            if (selectedEmailId && selectedEmail?.source === 'gmail' && !selectedEmail.isProcessed) {
-                // Update local
-                setEmails(prev => prev.map(e => e.id === selectedEmailId ? { ...e, isProcessed: true } : e));
-                // Update DB
-                updateEmail(selectedEmailId, { isProcessed: true }).catch(err => console.error("Failed to mark processed", err));
+            if (currentSelectedEmailId) {
+                const emailToCheck = isManualInput ? null : emails.find(e => e.id === currentSelectedEmailId);
+                // Note: newEmail is already local, but for existing emails:
+
+                // If original was gmail and unprocessed
+                if (emailToCheck?.source === 'gmail' && !emailToCheck.isProcessed) {
+                    // Update local
+                    setEmails(prev => prev.map(e => e.id === currentSelectedEmailId ? { ...e, isProcessed: true } : e));
+                    // Update DB
+                    updateEmail(currentSelectedEmailId, { isProcessed: true }).catch(err => console.error("Failed to mark processed", err));
+                }
             }
         } catch (error) {
             console.error(error);
@@ -552,8 +596,12 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     const handleSaveToTraining = async () => {
         if (!generatedDraft) return;
 
-        const inquiryText = isManualInput ? manualInquiry : emails.find(e => e.id === selectedEmailId)?.inquiry || "";
-        const emailDate = isManualInput ? new Date().toISOString() : emails.find(e => e.id === selectedEmailId)?.datetime || new Date().toISOString();
+        // Use current selection logic same as generate
+        const targetEmail = emails.find(e => e.id === selectedEmailId);
+        // Fallback for safety, though manual input should now be persisted
+        const inquiryText = targetEmail?.inquiry || manualInquiry;
+        const emailDate = targetEmail?.datetime || new Date().toISOString();
+
         const emailId = generateEmailHash(emailDate, inquiryText);
 
         const dataToSave = {
@@ -1066,6 +1114,11 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                                     {email.source === 'gmail' && !email.isProcessed && (
                                                         <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded font-bold animate-pulse whitespace-nowrap">
                                                             NEW
+                                                        </span>
+                                                    )}
+                                                    {email.source === 'manual' && (
+                                                        <span className="px-1.5 py-0.5 bg-gray-500 text-white text-[10px] rounded font-bold whitespace-nowrap">
+                                                            手動入力
                                                         </span>
                                                     )}
                                                 </div>
