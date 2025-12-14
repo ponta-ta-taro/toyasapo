@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Copy, Loader2, Settings, X, Play, Filter, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, Mail, Search, Trash2, Undo2, Ban, RefreshCw, AlertCircle, Clock, ListFilter } from "lucide-react"
+import { Upload, Copy, Loader2, Settings, X, Play, Filter, BookOpen, BarChart3, Plus, LogOut, Check, Save, Sparkles, Mail, Search, Trash2, Undo2, Ban, RefreshCw, AlertCircle, Clock, ListFilter, CircleHelp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import {
@@ -31,6 +31,7 @@ import {
 import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed, deleteEmail, restoreEmail, hardDeleteEmail, checkDraftExists, updateDraft, getDraftByEmailId } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
 import { LearningDataManager } from "@/components/learning-data-manager"
+import { HelpModal } from "@/components/help-modal"
 import { AnalysisDashboard } from "@/components/analysis-dashboard"
 
 import { Label } from "@/components/ui/label"
@@ -117,6 +118,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
     const [templateInitialData, setTemplateInitialData] = useState<Partial<Template> | undefined>(undefined)
     const [isLearningDataManagerOpen, setIsLearningDataManagerOpen] = useState(false)
+    const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
 
     // --- Search & Filter State ---
     const [searchQuery, setSearchQuery] = useState("")
@@ -862,6 +864,13 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             <BarChart3 className="w-4 h-4" />
                             <span>分析</span>
                         </Button>
+                        <Button
+                            onClick={() => setIsHelpModalOpen(true)}
+                            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-md transition-all"
+                            title="ヘルプ"
+                        >
+                            <CircleHelp className="w-5 h-5" />
+                        </Button>
                     </div>
 
                     <div className="h-8 w-px bg-gray-600 mx-2" />
@@ -1588,6 +1597,12 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Help Modal */}
+            <HelpModal
+                isOpen={isHelpModalOpen}
+                onClose={() => setIsHelpModalOpen(false)}
+            />
 
             {/* Analysis Dashboard Modal */}
             <AnalysisDashboard isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} emails={emails} />
