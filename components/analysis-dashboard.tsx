@@ -384,10 +384,10 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                         <div className="flex items-center gap-2">
                             <Button
                                 onClick={() => setIsAIConsultOpen(true)}
-                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-sm flex items-center gap-2 transition-all"
-                                size="sm"
+                                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-2 px-6 rounded-full shadow-md flex items-center gap-2 transition-all transform hover:scale-105"
+                                size="lg"
                             >
-                                <Sparkles className="w-4 h-4" />
+                                <Sparkles className="w-5 h-5" />
                                 AIに相談する
                             </Button>
                         </div>
