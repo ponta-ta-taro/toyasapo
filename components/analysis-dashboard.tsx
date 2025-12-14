@@ -110,7 +110,7 @@ interface ColabAnalysisData {
     symptoms: AnalyzedWord[];
     concerns: AnalyzedWord[];
     inquiry_types: AnalyzedWord[];
-    bigrams_top20?: AnalyzedWord[]; // Optional in case older data doesn't have it
+    bigrams_top20?: { word?: string; words?: string; count: number }[]; // Optional in case older data doesn't have it
     keywords_tfidf?: TFIDFWord[];
     cooccurrence?: Record<string, AnalyzedWord[]>;
     sentiment_summary?: {
@@ -811,7 +811,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                             <div className="w-full h-[300px]">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <BarChart
-                                                        data={colabData.bigrams_top20.slice(0, 10).map(item => ({ name: item.word, value: item.count }))}
+                                                        data={colabData.bigrams_top20.slice(0, 10).map(item => ({ name: item.words || item.word || "", value: item.count }))}
                                                         layout="vertical"
                                                         margin={{ left: 20 }}
                                                     >
