@@ -22,6 +22,7 @@ export interface Draft {
   inquiry: string;
   generatedDraft: string;
   finalResponse?: string;
+  notes?: string[];
   isApproved: boolean;
   createdAt: unknown;
 }

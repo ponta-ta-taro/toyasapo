@@ -28,7 +28,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed, deleteEmail, restoreEmail, hardDeleteEmail, checkDraftExists, updateDraft } from "@/lib/db"
+import { saveDraft, getApprovedDrafts, getSettings, saveSettings, saveEmails, getEmails, updateEmail, deleteAllEmails, getTemplates, getGmailImports, markGmailProcessed, deleteEmail, restoreEmail, hardDeleteEmail, checkDraftExists, updateDraft, getDraftByEmailId } from "@/lib/db"
 import { TemplateManager } from "@/components/template-manager"
 import { LearningDataManager } from "@/components/learning-data-manager"
 import { AnalysisDashboard } from "@/components/analysis-dashboard"
@@ -441,6 +441,30 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         setIsDraftSaved(false)
     }
 
+    const selectEmail = async (email: Email) => {
+        setIsManualInput(false)
+        setSelectedEmailId(email.id)
+
+        // Reset states initially
+        setGeneratedDraft("")
+        setGenerationNotes([])
+        setIsDraftSaved(false)
+
+        // Check if draft exists and load it
+        try {
+            const existingDraft = await getDraftByEmailId(email.id);
+            if (existingDraft) {
+                // Determine content to show: prefer latest edit (finalResponse), else generatedDraft
+                const displayContent = existingDraft.generatedDraft || existingDraft.finalResponse || "";
+                setGeneratedDraft(displayContent);
+                setGenerationNotes(existingDraft.notes || []);
+                setIsDraftSaved(true); // It exists in DB, so it is saved
+            }
+        } catch (e) {
+            console.error("Failed to auto-load draft:", e);
+        }
+    }
+
     const handleGenerate = async (isRefine = false) => {
         const selectedEmail = emails.find(e => e.id === selectedEmailId);
         const inquiryText = isManualInput ? manualInquiry : selectedEmail?.inquiry;
@@ -458,11 +482,10 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         try {
             const pastResponses = await getApprovedDrafts(5);
 
-            // Filter templates based on current email category
-            const currentCategory = isManualInput ? null : selectedEmail?.classification?.category;
-            const relevantTemplates = currentCategory
-                ? templates.filter(t => t.category === currentCategory)
-                : [];
+            // Send ALL templates to let AI decide relevance
+            // const relevantTemplates = currentCategory
+            //     ? templates.filter(t => t.category === currentCategory)
+            //     : [];
 
             const res = await fetch("/api/generate", {
                 method: "POST",
@@ -471,7 +494,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     inquiry: inquiryText,
                     policy: policy,
                     pastResponses,
-                    templates: relevantTemplates, // Add templates to payload
+                    templates: templates, // Send ALL templates
                     mode: isRefine ? "refine" : "create",
                     currentDraft: isRefine ? generatedDraft : undefined,
                     instructions: isRefine ? refineInstructions : undefined,
@@ -999,10 +1022,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                                 return (
                                     <button
                                         key={email.id}
-                                        onClick={() => {
-                                            setSelectedEmailId(email.id);
-                                            setIsManualInput(false);
-                                        }}
+                                        onClick={() => selectEmail(email)}
                                         className={cn(
                                             "w-full p-4 rounded-lg text-left transition-all",
                                             isSelected

@@ -51,7 +51,7 @@ JSON形式で出力してください。以下のキーを含めてください�
 
         // Append Templates (Model Answers) - High Priority
         if (templates && Array.isArray(templates) && templates.length > 0) {
-            systemPrompt += `\n\n【模範回答（テンプレート）】\nこの問い合わせに関連する模範的な回答パターンです。以下のトーンや構成を強く意識して返信を作成してください。\n`;
+            systemPrompt += `\n\n【模範回答リスト（参考）】\n以下は当院の模範回答のリストです。今回の問い合わせに関連するものがあれば、適宜参照して回答を作成してください（関連しない場合は無視してください）。\n`;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             templates.forEach((t: any, index: number) => {
                 systemPrompt += `\n模範回答${index + 1} (${t.pattern}):\n${t.response}\n`;

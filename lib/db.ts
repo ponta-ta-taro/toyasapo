@@ -47,6 +47,30 @@ export async function toggleDraftApproval(id: string, isApproved: boolean) {
 /**
  * Check if draft exists by emailId
  */
+/**
+ * Get full draft by emailId
+ */
+export async function getDraftByEmailId(emailId: string): Promise<Draft | null> {
+    if (!db) return null;
+    try {
+        const q = query(collection(db, DRAFTS_COLLECTION), where("emailId", "==", emailId), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            return {
+                id: snapshot.docs[0].id,
+                ...snapshot.docs[0].data()
+            } as Draft;
+        }
+        return null;
+    } catch (e) {
+        console.error("Failed to get draft by emailId:", e);
+        return null;
+    }
+}
+
+/**
+ * Check if draft exists by emailId
+ */
 export async function checkDraftExists(emailId: string): Promise<string | null> {
     if (!db) return null;
     try {
