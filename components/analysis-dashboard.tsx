@@ -5,6 +5,7 @@ import { Email } from "@/lib/types"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, limit, getDocs } from "firebase/firestore"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import {
     Select,
     SelectContent,
@@ -33,9 +34,11 @@ import {
     LineChart,
     Line
 } from "recharts"
-import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote, Lightbulb, ArrowRightLeft, Target } from "lucide-react"
+import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote, Lightbulb, ArrowRightLeft, Target, Sparkles } from "lucide-react"
 
-interface AnalyzedWord {
+import { AIConsultationDialog } from "./ai-consultation-dialog"
+
+export interface AnalyzedWord {
     word: string;
     count: number;
 }
@@ -84,10 +87,11 @@ interface ReviewSentimentData {
     };
 }
 
-interface CorrelationAnalysisData {
+export interface CorrelationAnalysisData {
     updated_at: string;
     email_count: number;
     review_count: number;
+    low_rating_review_count: number;
     high_rating_review_count?: number;
     email_top20: AnalyzedWord[];
     review_top20: AnalyzedWord[];
@@ -151,6 +155,7 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
     const [loadingColab, setLoadingColab] = useState(false);
     const [loadingReviews, setLoadingReviews] = useState(false);
     const [selectedCooccurrenceKey, setSelectedCooccurrenceKey] = useState<string>("");
+    const [isAIConsultOpen, setIsAIConsultOpen] = useState(false);
 
     useEffect(() => {
         const fetchColabAnalysis = async () => {
@@ -1327,6 +1332,35 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* AI Consultation Button */}
+                                    <div className="flex justify-center mt-12 mb-4 border-t border-gray-100 pt-8">
+                                        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-3xl p-8 text-center max-w-2xl shadow-sm w-full mx-auto">
+                                            <div className="flex justify-center mb-4">
+                                                <div className="bg-white p-3 rounded-full shadow-sm">
+                                                    <Sparkles className="w-8 h-8 text-purple-600" />
+                                                </div>
+                                            </div>
+                                            <h3 className="text-xl font-bold text-gray-800 mb-2">AI経営アドバイザーに相談する</h3>
+                                            <p className="text-gray-500 mb-6 text-sm">
+                                                分析データを元に、AIが改善提案や経営に関する質問にお答えします。<br />
+                                                「何から改善すべき？」「強みを活かすには？」など、自由に質問してください。
+                                            </p>
+                                            <Button
+                                                onClick={() => setIsAIConsultOpen(true)}
+                                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-6 px-10 rounded-full shadow-lg flex items-center gap-3 transition-all hover:scale-105 hover:shadow-xl mx-auto text-lg"
+                                            >
+                                                <MessageSquare className="w-5 h-5" />
+                                                AIに相談を始める
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <AIConsultationDialog
+                                        isOpen={isAIConsultOpen}
+                                        onClose={() => setIsAIConsultOpen(false)}
+                                        data={correlationData}
+                                    />
                                 </div>
                             )}
                         </div>
