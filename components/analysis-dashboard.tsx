@@ -88,18 +88,22 @@ interface CorrelationAnalysisData {
     updated_at: string;
     email_count: number;
     review_count: number;
-    low_rating_review_count: number;
+    high_rating_review_count?: number;
     email_top20: AnalyzedWord[];
     review_top20: AnalyzedWord[];
     low_rating_top20: AnalyzedWord[];
+    high_rating_top20?: AnalyzedWord[];
     common_email_review: string[];
     common_email_low_rating: string[];
     common_all: string[];
     correlation_scores: {
         email_review: number;
         email_low_rating: number;
+        email_high_rating?: number;
     };
-    improvement_suggestions: string[];
+    improvement_suggestions: string[]; // Deprecated, use weakness_keywords
+    strength_keywords?: AnalyzedWord[];
+    weakness_keywords?: AnalyzedWord[];
 }
 
 interface ColabAnalysisData {
@@ -1131,29 +1135,65 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                 </div>
                             ) : (
                                 <div className="flex flex-col gap-8">
-                                    {/* 1. Improvement Suggestions (Priority) */}
-                                    <div className="bg-red-50 p-6 rounded-xl border border-red-100 relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                                            <Target className="w-32 h-32 text-red-600" />
+                                    {/* 1. Strength & Weakness Points */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Strength Points (Green) */}
+                                        <div className="bg-green-50 p-6 rounded-xl border border-green-100 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <Target className="w-32 h-32 text-green-600" />
+                                            </div>
+                                            <div className="relative z-10">
+                                                <h4 className="text-lg font-bold text-green-700 flex items-center gap-2 mb-4">
+                                                    <Lightbulb className="w-6 h-6 text-green-500 fill-green-500" />
+                                                    強みポイント (AI分析)
+                                                </h4>
+                                                <p className="text-sm text-green-600 mb-4">
+                                                    高評価口コミとメールで共通するキーワードです。これらは患者様に評価されているクリニックの強みです。
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {correlationData.strength_keywords && correlationData.strength_keywords.length > 0 ? (
+                                                        correlationData.strength_keywords.map((item, i) => (
+                                                            <span key={i} className="px-3 py-1 bg-white text-green-700 font-bold rounded-lg shadow-sm border border-green-100 text-sm flex items-center gap-1">
+                                                                {item.word}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-gray-500 text-sm">データなし</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="relative z-10">
-                                            <h4 className="text-lg font-bold text-red-700 flex items-center gap-2 mb-4">
-                                                <Lightbulb className="w-6 h-6 text-yellow-500 fill-yellow-500" />
-                                                優先改善ポイント (AI提案)
-                                            </h4>
-                                            <p className="text-sm text-red-600 mb-4">
-                                                メールと低評価口コミの両方で頻出するキーワードです。これらは患者様の不満や不安の主要因となっている可能性があります。
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {correlationData.improvement_suggestions.length > 0 ? (
-                                                    correlationData.improvement_suggestions.map((word, i) => (
-                                                        <span key={i} className="px-4 py-2 bg-white text-red-600 font-bold rounded-lg shadow-sm border border-red-100 text-lg">
-                                                            {word}
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-gray-500 text-sm">特になし</span>
-                                                )}
+
+                                        {/* Weakness Points (Red) */}
+                                        <div className="bg-red-50 p-6 rounded-xl border border-red-100 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <AlertCircle className="w-32 h-32 text-red-600" />
+                                            </div>
+                                            <div className="relative z-10">
+                                                <h4 className="text-lg font-bold text-red-700 flex items-center gap-2 mb-4">
+                                                    <Lightbulb className="w-6 h-6 text-yellow-500 fill-yellow-500" />
+                                                    優先改善ポイント (AI分析)
+                                                </h4>
+                                                <p className="text-sm text-red-600 mb-4">
+                                                    メールと低評価口コミの両方で頻出するキーワードです。主要な改善課題となる可能性があります。
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {correlationData.weakness_keywords && correlationData.weakness_keywords.length > 0 ? (
+                                                        correlationData.weakness_keywords.map((item, i) => (
+                                                            <span key={i} className="px-4 py-2 bg-white text-red-600 font-bold rounded-lg shadow-sm border border-red-100 text-lg">
+                                                                {item.word}
+                                                            </span>
+                                                        ))
+                                                    ) : correlationData.improvement_suggestions && correlationData.improvement_suggestions.length > 0 ? (
+                                                        correlationData.improvement_suggestions.map((word, i) => (
+                                                            <span key={i} className="px-4 py-2 bg-white text-red-600 font-bold rounded-lg shadow-sm border border-red-100 text-lg">
+                                                                {word}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-gray-500 text-sm">特になし</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
