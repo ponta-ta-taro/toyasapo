@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { Email } from "@/lib/types"
 import { db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, collection, query, limit, getDocs } from "firebase/firestore"
 import { Input } from "@/components/ui/input"
 import {
     Select,
@@ -33,7 +33,7 @@ import {
     LineChart,
     Line
 } from "recharts"
-import { BarChart3, Database, AlertCircle } from "lucide-react"
+import { BarChart3, Database, AlertCircle, MessageSquare, Star, Quote } from "lucide-react"
 
 interface AnalyzedWord {
     word: string;
@@ -43,6 +43,45 @@ interface AnalyzedWord {
 interface TFIDFWord {
     word: string;
     score: number;
+}
+
+interface Review {
+    id: string;
+    name: string;
+    author?: string; // Fallback
+    rating: number;
+    text: string;
+    date_text: string;
+    date?: string; // Fallback
+    scraped_at?: string;
+    created_at?: unknown;
+}
+
+interface ReviewSentimentData {
+    updated_at: string;
+    total_count: number;
+    source: string;
+    summary: { // Structure from Python script
+        positive_count: number;
+        negative_count: number;
+        neutral_count: number;
+        mixed_count: number;
+        average_scores: {
+            positive: number;
+            negative: number;
+            neutral: number;
+        };
+    };
+    // Flattened structure fallback if user changed structure
+    positive_count?: number;
+    negative_count?: number;
+    neutral_count?: number;
+    mixed_count?: number;
+    average_scores?: {
+        positive: number;
+        negative: number;
+        neutral: number;
+    };
 }
 
 interface ColabAnalysisData {
@@ -84,7 +123,10 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
     const [customStartDate, setCustomStartDate] = useState<string>("");
     const [customEndDate, setCustomEndDate] = useState<string>("");
     const [colabData, setColabData] = useState<ColabAnalysisData | null>(null);
+    const [reviewSentiment, setReviewSentiment] = useState<ReviewSentimentData | null>(null);
+    const [reviews, setReviews] = useState<Review[]>([]);
     const [loadingColab, setLoadingColab] = useState(false);
+    const [loadingReviews, setLoadingReviews] = useState(false);
     const [selectedCooccurrenceKey, setSelectedCooccurrenceKey] = useState<string>("");
 
     useEffect(() => {
@@ -118,8 +160,73 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
             }
         };
 
+        const fetchReviewData = async () => {
+            if (!isOpen) return;
+            try {
+                setLoadingReviews(true);
+                if (!db) return;
+
+                // 1. Fetch Sentiment Analysis
+                const sentimentRef = doc(db, 'analysis_results', 'reviews_sentiment');
+                const sentimentSnap = await getDoc(sentimentRef);
+                if (sentimentSnap.exists()) {
+                    setReviewSentiment(sentimentSnap.data() as ReviewSentimentData);
+                } else {
+                    setReviewSentiment(null);
+                }
+
+                // 2. Fetch Recent Reviews
+                // Note: 'date' or 'scraped_at' might vary, checking latest documents usually implies sorting.
+                // Since user didn't specify sort key, we try 'scraped_at' or 'created_at' if available, else just get some.
+                const reviewsRef = collection(db, 'reviews');
+                // Try to get latest 50 for stats
+                const q = query(reviewsRef, limit(100));
+                const querySnapshot = await getDocs(q);
+
+                const loadedReviews: Review[] = [];
+                querySnapshot.forEach((doc) => {
+                    loadedReviews.push({ id: doc.id, ...doc.data() } as Review);
+                });
+
+                // Sort by star rating or date if possible? 
+                // For now, client-side sort if needed.
+                setReviews(loadedReviews);
+
+            } catch (error) {
+                console.error("Error fetching review data:", error);
+            } finally {
+                setLoadingReviews(false);
+            }
+        };
+
         fetchColabAnalysis();
+        fetchReviewData();
     }, [isOpen]);
+
+    // Review Stats Calculation
+    const reviewStats = useMemo(() => {
+        if (reviews.length === 0) return null;
+
+        const count = reviews.length;
+        const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+        const avgRating = totalRating / count;
+
+        const starCounts = [0, 0, 0, 0, 0]; // 1, 2, 3, 4, 5
+        reviews.forEach(r => {
+            const star = Math.round(r.rating || 0);
+            if (star >= 1 && star <= 5) {
+                starCounts[star - 1]++;
+            }
+        });
+
+        const starData = starCounts.map((count, i) => ({
+            name: `${i + 1}星`,
+            value: count
+        })).reverse(); // 5 stars top
+
+        return { count, avgRating, starData };
+    }, [reviews]);
+
 
     const filteredEmails = useMemo(() => {
         if (dateRange === "all") return emails;
@@ -784,6 +891,165 @@ export function AnalysisDashboard({ isOpen, onClose, emails }: AnalysisDashboard
                                             )}
                                         </div>
                                     )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Section 3: Google Maps Reviews Analysis */}
+                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8">
+                            <div className="flex flex-col gap-1 mb-6 border-b border-gray-100 pb-4">
+                                <div className="flex justify-between items-start">
+                                    <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                                        <MessageSquare className="h-6 w-6 text-green-600" />
+                                        Googleマップ クチコミ分析
+                                    </h3>
+                                    {reviewSentiment && (
+                                        <span className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
+                                            最終更新: {new Date(reviewSentiment.updated_at).toLocaleString('ja-JP')}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-sm text-gray-500 ml-8">
+                                    ※Googleマップに投稿された口コミデータの分析です
+                                </p>
+                            </div>
+
+                            {loadingReviews ? (
+                                <div className="flex justify-center items-center h-[200px] text-gray-500">
+                                    読み込み中...
+                                </div>
+                            ) : !reviewStats ? (
+                                <div className="flex justify-center items-center h-[200px] bg-gray-50 rounded-lg text-gray-500">
+                                    口コミデータがありません。
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-8">
+                                    {/* 1. Overview Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 flex flex-col items-center justify-center">
+                                            <div className="text-sm text-orange-600 font-bold mb-2">総コミ件数</div>
+                                            <div className="text-3xl font-bold text-gray-800">{reviewStats.count}件</div>
+                                        </div>
+                                        <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-100 flex flex-col items-center justify-center">
+                                            <div className="text-sm text-yellow-600 font-bold mb-2">平均評価</div>
+                                            <div className="flex items-end gap-2">
+                                                <span className="text-4xl font-bold text-gray-800">{reviewStats.avgRating.toFixed(1)}</span>
+                                                <div className="flex mb-2">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <Star key={i} className={`w-5 h-5 ${i < Math.round(reviewStats.avgRating) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {/* Sentiment Summary Card */}
+                                        <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 flex flex-col items-center justify-center">
+                                            <div className="text-sm text-blue-600 font-bold mb-2">AI感情分析</div>
+                                            <div className="flex gap-4 text-center">
+                                                <div>
+                                                    <div className="text-xs text-gray-500">Pos</div>
+                                                    <div className="text-xl font-bold text-green-600">
+                                                        {reviewSentiment?.summary?.positive_count ||
+                                                            reviewSentiment?.positive_count || 0}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500">Neg</div>
+                                                    <div className="text-xl font-bold text-red-600">
+                                                        {reviewSentiment?.summary?.negative_count ||
+                                                            reviewSentiment?.negative_count || 0}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Charts Row */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Star Distribution */}
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                                <Star className="w-5 h-5 text-yellow-500" />
+                                                評価分布（星の数）
+                                            </h4>
+                                            <div className="h-[250px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={reviewStats.starData} layout="vertical" margin={{ left: 20 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="name" type="category" width={40} />
+                                                        <Tooltip />
+                                                        <Bar dataKey="value" fill="#fbbf24" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#666' }} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* Sentiment Distribution */}
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                                <AlertCircle className="w-5 h-5 text-blue-500" />
+                                                感情分析（AI判定）
+                                            </h4>
+                                            <div className="h-[250px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={[
+                                                                { name: 'ポジティブ', value: reviewSentiment?.summary?.positive_count || reviewSentiment?.positive_count || 0, color: '#22c55e' },
+                                                                { name: 'ネガティブ', value: reviewSentiment?.summary?.negative_count || reviewSentiment?.negative_count || 0, color: '#ef4444' },
+                                                                { name: 'ニュートラル', value: reviewSentiment?.summary?.neutral_count || reviewSentiment?.neutral_count || 0, color: '#94a3b8' },
+                                                                { name: '混合', value: reviewSentiment?.summary?.mixed_count || reviewSentiment?.mixed_count || 0, color: '#eab308' },
+                                                            ].filter(d => d.value > 0)}
+                                                            cx="50%"
+                                                            cy="50%"
+                                                            innerRadius={60}
+                                                            outerRadius={80}
+                                                            paddingAngle={5}
+                                                            dataKey="value"
+                                                        >
+                                                            {[
+                                                                { name: 'ポジティブ', value: reviewSentiment?.summary?.positive_count || reviewSentiment?.positive_count || 0, color: '#22c55e' },
+                                                                { name: 'ネガティブ', value: reviewSentiment?.summary?.negative_count || reviewSentiment?.negative_count || 0, color: '#ef4444' },
+                                                                { name: 'ニュートラル', value: reviewSentiment?.summary?.neutral_count || reviewSentiment?.neutral_count || 0, color: '#94a3b8' },
+                                                                { name: '混合', value: reviewSentiment?.summary?.mixed_count || reviewSentiment?.mixed_count || 0, color: '#eab308' },
+                                                            ].filter(d => d.value > 0).map((entry, index) => (
+                                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip />
+                                                        <Legend />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Recent Reviews */}
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                            <Quote className="w-5 h-5 text-gray-500" />
+                                            最新の口コミ
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {reviews.slice(0, 6).map((review) => (
+                                                <div key={review.id} className="bg-gray-50 p-4 rounded-lg border border-gray-100 text-sm">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div className="font-bold text-gray-800">{review.name || review.author || '匿名'}</div>
+                                                        <div className="flex items-center gap-1">
+                                                            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                                                            <span className="font-bold">{review.rating}</span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-gray-600 line-clamp-3 mb-2">
+                                                        {review.text || <span className="text-gray-400 italic">(本文なし)</span>}
+                                                    </p>
+                                                    <div className="text-xs text-gray-400 text-right">
+                                                        {review.date_text || review.date || '日付不明'}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
