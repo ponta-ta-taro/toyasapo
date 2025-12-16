@@ -456,16 +456,36 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
         // Check if draft exists and load it
         try {
-            const existingDraft = await getDraftByEmailId(email.id);
+            // 1. Try by direct ID (works for Gmail imports where ID is hash)
+            let existingDraft = await getDraftByEmailId(email.id);
+
+            // 2. If not found, try by Content Hash (works for CSV/Manual where ID is UUID but draft uses Hash)
+            if (!existingDraft) {
+                const hashId = generateEmailHash(email.datetime, email.inquiry);
+                // Avoid redundant call if id === hashId (though unlikely for UUIDs)
+                if (hashId !== email.id) {
+                    existingDraft = await getDraftByEmailId(hashId);
+                }
+            }
+
             if (existingDraft) {
                 // Determine content to show: prefer latest edit (finalResponse), else generatedDraft
                 const displayContent = existingDraft.generatedDraft || existingDraft.finalResponse || "";
                 setGeneratedDraft(displayContent);
                 setGenerationNotes(existingDraft.notes || []);
                 setIsDraftSaved(true); // It exists in DB, so it is saved
+            } else if (email.response) {
+                // 3. Fallback: Use the response from the Email object itself (e.g. from CSV or previous save)
+                // This handles the case where "Draft Generated" badge is shown but no learning data exists yet.
+                setGeneratedDraft(email.response);
+                // We do NOT set isDraftSaved=true here, because it hasn't been saved to "Learning Data" (drafts collection) yet.
             }
         } catch (e) {
             console.error("Failed to auto-load draft:", e);
+            // Fallback to local response on error
+            if (email.response) {
+                setGeneratedDraft(email.response);
+            }
         }
     }
 
